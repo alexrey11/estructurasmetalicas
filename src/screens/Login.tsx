@@ -28,7 +28,7 @@ export default function Login() {
     <div className="grid min-h-screen place-items-center bg-lienzo px-4 py-10">
       <div className="w-full max-w-sm animate-subir space-y-6">
         <div className="text-center">
-          <img src="/logo.svg" alt="MetalTrike" className="mx-auto size-20 rounded-2xl shadow-lg" />
+          <img src="/logo.png" alt="Estructuras Metálicas" className="mx-auto size-24 rounded-2xl bg-white p-2 shadow-lg object-contain" />
           <h1 className="mt-4 text-2xl font-bold text-slate-900">MetalTrike</h1>
           <p className="mt-1 text-sm text-slate-600">Gestión de estructuras y alquiler</p>
         </div>

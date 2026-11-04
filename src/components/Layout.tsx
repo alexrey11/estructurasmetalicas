@@ -23,7 +23,7 @@ export default function Layout({ tab, sesion, onCambiarTab, children }: Props) {
       <header className="sticky top-0 z-30 bg-header text-white shadow-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <img src="/logo.svg" alt="" className="size-10 shrink-0 rounded-xl" />
+            <img src="/logo.png" alt="" className="size-10 shrink-0 rounded-lg bg-white p-1 object-contain" />
             <div className="min-w-0">
               <p className="truncate text-sm font-bold">{nombreNegocio}</p>
               <p className="truncate text-xs text-slate-300">{nombre}</p>

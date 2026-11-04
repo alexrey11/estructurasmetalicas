@@ -1,6 +1,7 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useMemo } from 'react';
-import { Bike, ShoppingCart, TriangleAlert, Wallet, TrendingUp } from 'lucide-react';
+import { ShoppingCart, TriangleAlert, Wallet, TrendingUp } from 'lucide-react';
+import TricicloIcon from '@/components/TricicloIcon';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import Boton from '@/components/ui/Boton';
 import Card from '@/components/ui/Card';
@@ -43,7 +44,7 @@ export default function Dashboard({ onNavegar }: Props) {
   const tarjetas = [
     { titulo: 'Ganancia del día', valor: formatMonto(resumen.gananciaDia, moneda), detalle: 'Ventas y alquileres', Icono: TrendingUp, color: 'text-emerald-700' },
     { titulo: 'Ventas del día', valor: formatMonto(resumen.ventasTotal, moneda), detalle: `${resumen.ventasCantidad} venta(s)`, Icono: ShoppingCart, color: 'text-slate-900' },
-    { titulo: 'Alquileres activos', valor: String(alquileresActivos), detalle: `${triciclos.filter((t) => t.estado === 'alquilado').length} en uso`, Icono: Bike, color: 'text-slate-900' },
+    { titulo: 'Alquileres activos', valor: String(alquileresActivos), detalle: `${triciclos.filter((t) => t.estado === 'alquilado').length} en uso`, Icono: TricicloIcon, color: 'text-slate-900' },
     { titulo: 'Stock bajo', valor: String(stockBajo), detalle: 'Productos bajo el mínimo', Icono: TriangleAlert, color: stockBajo > 0 ? 'text-amber-700' : 'text-slate-900' },
   ];
 
@@ -72,7 +73,7 @@ export default function Dashboard({ onNavegar }: Props) {
           <ShoppingCart size={22} /> Nueva venta
         </Boton>
         <Boton variante="secundaria" onClick={() => onNavegar('alquiler', 'nuevo-alquiler')} className="min-h-16 text-lg">
-          <Bike size={22} /> Nuevo alquiler
+          <TricicloIcon size={22} /> Nuevo alquiler
         </Boton>
       </div>
 

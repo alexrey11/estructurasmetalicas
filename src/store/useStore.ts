@@ -32,6 +32,11 @@ type Acciones = {
   finalizarAlquiler: (id: string, datos: { bateriaFin: number; metodoPago: MetodoPagoAlquiler }) => Resultado;
   cambiarEstadoTriciclo: (id: string, estado: Extract<EstadoTriciclo, 'disponible' | 'mantenimiento'>) => Resultado;
 
+  // NUEVAS ACCIONES DE TRICICLOS
+  crearTriciclo: (datos: { nombre: string; tarifaPorMinuto: number }) => Resultado<Triciclo>;
+  actualizarTriciclo: (id: string, datos: Partial<Pick<Triciclo, 'nombre' | 'tarifaPorMinuto' | 'bateria'>>) => Resultado;
+  eliminarTriciclo: (id: string) => Resultado;
+
   registrarRetiro: (datos: { socioId: SocioId; monto: number; nota?: string }) => Resultado<Retiro>;
   actualizarConfig: (datos: Partial<Config>) => Resultado;
 };
@@ -292,6 +297,42 @@ export const useStore = create<EstadoApp>()(
         return exito(null);
       },
 
+      // --- NUEVAS ACCIONES DE TRICICLOS ---
+      crearTriciclo: (datos) => {
+        if (!datos.nombre.trim()) return fallo('Escribe el nombre del triciclo.');
+        if (!(datos.tarifaPorMinuto > 0)) return fallo('La tarifa debe ser mayor que cero.');
+        const triciclo: Triciclo = {
+          id: newId('triciclo'),
+          nombre: datos.nombre.trim(),
+          tarifaPorMinuto: datos.tarifaPorMinuto,
+          estado: 'disponible',
+          bateria: 100,
+        };
+        set((s) => ({ triciclos: [...s.triciclos, triciclo] }));
+        return exito(triciclo);
+      },
+
+      actualizarTriciclo: (id, datos) => {
+        const state = get();
+        const existe = state.triciclos.some((t) => t.id === id);
+        if (!existe) return fallo('Triciclo no encontrado.');
+        if (datos.tarifaPorMinuto !== undefined && datos.tarifaPorMinuto <= 0) {
+          return fallo('La tarifa debe ser mayor que cero.');
+        }
+        set({
+          triciclos: state.triciclos.map((t) => (t.id === id ? { ...t, ...datos } : t)),
+        });
+        return exito(null);
+      },
+
+      eliminarTriciclo: (id) => {
+        const state = get();
+        const conAlquileres = state.alquileres.some((a) => a.tricicloId === id);
+        if (conAlquileres) return fallo('No se puede eliminar: tiene alquileres registrados.');
+        set({ triciclos: state.triciclos.filter((t) => t.id !== id) });
+        return exito(null);
+      },
+
       registrarRetiro: ({ socioId, monto, nota }) => {
         const state = get();
         if (!(monto > 0)) return fallo('El monto debe ser mayor que cero.');
@@ -335,7 +376,6 @@ export const useStore = create<EstadoApp>()(
   )
 );
 
-// Exportación auxiliar por si se necesita fuera de componentes
 export function sociosActuales(): Socio[] {
   return useStore.getState().socios;
 }
