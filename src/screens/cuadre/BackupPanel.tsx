@@ -25,8 +25,8 @@ export default function BackupPanel() {
     return (
         <Card className="space-y-4">
             <h2 className="text-lg font-semibold text-slate-900">Datos y respaldo</h2>
-            <p className="text-sm text-slate-600">
-                Exporta un backup periódicamente. Todos los datos viven solo en este dispositivo.
+            <p className="text-xs text-emerald-700">
+                ✅ Backup automático diario en Documentos/MetalTrike si no Exportar Backup al Día
             </p>
 
             <div className="grid gap-2 sm:grid-cols-2">

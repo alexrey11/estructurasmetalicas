@@ -2,10 +2,10 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { Producto, Resultado, Socio, SocioId, TipoProducto } from '@/lib/types';
 
-const ETIQUETA_TIPO: Record<TipoProducto, string> = { angular: 'Angular', tubo: 'Tubo' };
+const ETIQUETA_TIPO: Record<TipoProducto, string> = { angular: 'Angular', tubo: 'Tubo', otro: '' };
 
-export function nombreProducto(producto: Pick<Producto, 'tipo' | 'medida'>): string {
-  return `${ETIQUETA_TIPO[producto.tipo]} ${producto.medida}`;
+export function nombreProducto(producto: Pick<Producto, 'tipo' | 'nombre'>): string {
+  return producto.tipo === 'otro' ? producto.nombre : `${ETIQUETA_TIPO[producto.tipo]} ${producto.nombre}`;
 }
 
 export function nombreSocio(id: SocioId, socios: Socio[]): string {

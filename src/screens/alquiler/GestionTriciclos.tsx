@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useState, type FormEvent } from 'react';
-import { Pencil, Plus, Settings2, Trash2 } from 'lucide-react';
+import { BatteryCharging, Pencil, Plus, Settings2, Trash2 } from 'lucide-react';
 import Boton from '@/components/ui/Boton';
 import Campo, { claseInput } from '@/components/ui/Campo';
 import Card from '@/components/ui/Card';
@@ -14,19 +14,19 @@ import TricicloIcon from '@/components/TricicloIcon';
 type Edicion = { modo: 'nuevo' } | { modo: 'editar'; triciclo: Triciclo } | null;
 
 export default function GestionTriciclos() {
-    const { triciclos, moneda, eliminarTriciclo } = useStore(
+    const { triciclos, moneda, eliminarTriciclo, enviarACargar } = useStore(
         useShallow((s) => ({
-            triciclos: s.triciclos,
-            moneda: s.config.moneda,
-            eliminarTriciclo: s.eliminarTriciclo,
+            triciclos: s.triciclos, moneda: s.config.moneda,
+            eliminarTriciclo: s.eliminarTriciclo, enviarACargar: s.enviarACargar,
         }))
     );
     const { mostrar } = useToast();
     const [edicion, setEdicion] = useState<Edicion>(null);
+    const [cargando, setCargando] = useState<Triciclo | null>(null);
 
-    const borrar = (triciclo: Triciclo) => {
-        if (!window.confirm(`¿Eliminar "${triciclo.nombre}"? Solo se puede si no tiene alquileres.`)) return;
-        const r = eliminarTriciclo(triciclo.id);
+    const borrar = (t: Triciclo) => {
+        if (!window.confirm(`¿Eliminar "${t.nombre}"? Solo se puede si no tiene alquileres.`)) return;
+        const r = eliminarTriciclo(t.id);
         mostrar(r.ok ? 'Triciclo eliminado.' : r.error, r.ok ? 'exito' : 'error');
     };
 
@@ -52,11 +52,22 @@ export default function GestionTriciclos() {
                             <div className="min-w-0">
                                 <p className="truncate font-semibold text-slate-900">{t.nombre}</p>
                                 <p className="truncate text-xs text-slate-500">
-                                    {formatMonto(t.tarifaPorMinuto, moneda)}/min · {t.estado}
+                                    {formatMonto(t.precioAlquiler, moneda)}/día · {t.estado}
                                 </p>
                             </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-1">
+                            {t.estado !== 'alquilado' && t.estado !== 'cargando' && (
+                                <button
+                                    type="button"
+                                    onClick={() => setCargando(t)}
+                                    aria-label={`Cargar ${t.nombre}`}
+                                    className="grid size-10 place-items-center rounded-lg text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition"
+                                    title="Enviar a cargar"
+                                >
+                                    <BatteryCharging size={16} />
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 onClick={() => setEdicion({ modo: 'editar', triciclo: t })}
@@ -90,6 +101,23 @@ export default function GestionTriciclos() {
                     />
                 )}
             </Modal>
+
+            <Modal abierto={cargando !== null} onCerrar={() => setCargando(null)} titulo={`Cargar ${cargando?.nombre ?? ''}`}>
+                {cargando && (
+                    <FormCarga
+                        triciclo={cargando}
+                        onGuardado={(horas) => {
+                            const r = enviarACargar(cargando.id, horas);
+                            if (r.ok) {
+                                mostrar(`Triciclo en carga por ${horas}h. Aviso cuando termine.`);
+                                setCargando(null);
+                            } else {
+                                mostrar(r.error, 'error');
+                            }
+                        }}
+                    />
+                )}
+            </Modal>
         </Card>
     );
 }
@@ -99,49 +127,55 @@ function TricicloForm({ triciclo, onGuardado }: { triciclo?: Triciclo; onGuardad
     const actualizarTriciclo = useStore((s) => s.actualizarTriciclo);
     const { mostrar } = useToast();
     const [nombre, setNombre] = useState(triciclo?.nombre ?? '');
-    const [tarifa, setTarifa] = useState(String(triciclo?.tarifaPorMinuto ?? '5'));
+    const [precio, setPrecio] = useState(String(triciclo?.precioAlquiler ?? '6000'));
     const [error, setError] = useState('');
 
     const enviar = (evento: FormEvent) => {
         evento.preventDefault();
-        const datos = { nombre, tarifaPorMinuto: Number(tarifa) };
-        const r = triciclo
-            ? actualizarTriciclo(triciclo.id, datos)
-            : crearTriciclo(datos);
-
-        if (!r.ok) {
-            setError(r.error);
-            return;
-        }
-        mostrar(triciclo ? 'Triciclo actualizado.' : 'Triciclo añadido a la flota.');
+        const datos = { nombre, precioAlquiler: Number(precio) };
+        const r = triciclo ? actualizarTriciclo(triciclo.id, datos) : crearTriciclo(datos);
+        if (!r.ok) { setError(r.error); return; }
+        mostrar(triciclo ? 'Triciclo actualizado.' : 'Triciclo añadido.');
         onGuardado();
     };
 
     return (
         <form onSubmit={enviar} className="space-y-4">
             <Campo etiqueta="Nombre del triciclo">
-                <input
-                    className={claseInput}
-                    value={nombre}
-                    onChange={(e) => setNombre(e.target.value)}
-                    placeholder="Ej: Triciclo 3 - El Rayo"
-                />
+                <input className={claseInput} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: Triciclo 3 - El Rayo" />
             </Campo>
-            <Campo etiqueta="Tarifa por minuto" ayuda="Precio que cobras por cada minuto de alquiler">
-                <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0.1"
-                    step="0.1"
-                    className={claseInput}
-                    value={tarifa}
-                    onChange={(e) => setTarifa(e.target.value)}
-                />
+            <Campo etiqueta="Precio de alquiler por día">
+                <input type="number" inputMode="decimal" min="1" step="1" className={claseInput} value={precio} onChange={(e) => setPrecio(e.target.value)} />
             </Campo>
             {error && <p className="text-sm text-red-600">{error}</p>}
-            <Boton type="submit" bloque>
-                {triciclo ? 'Guardar cambios' : 'Crear triciclo'}
-            </Boton>
+            <Boton type="submit" bloque>{triciclo ? 'Guardar cambios' : 'Crear triciclo'}</Boton>
         </form>
+    );
+}
+
+function FormCarga({ triciclo, onGuardado }: { triciclo: Triciclo; onGuardado: (horas: number) => void }) {
+    const [horas, setHoras] = useState('6');
+    const horasNum = Number(horas);
+    const valido = Number.isFinite(horasNum) && horasNum > 0;
+    const fin = valido ? new Date(Date.now() + horasNum * 3600 * 1000) : null;
+
+    return (
+        <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+                ¿Cuántas horas necesita cargar <strong>{triciclo.nombre}</strong>?
+            </p>
+            <Campo etiqueta="Horas de carga">
+                <input type="number" inputMode="decimal" min="0.5" step="0.5" className={claseInput} value={horas} onChange={(e) => setHoras(e.target.value)} />
+            </Campo>
+            {fin && (
+                <p className="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                    Estará listo a las <strong>{fin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</strong>.
+                    La app te avisará cuando termine.
+                </p>
+            )}
+            <Boton bloque onClick={() => valido && onGuardado(horasNum)} disabled={!valido}>
+                <BatteryCharging size={18} /> Comenzar carga
+            </Boton>
+        </div>
     );
 }

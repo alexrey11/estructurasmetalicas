@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
-import { useState } from 'react';
-import { Battery, Plus, Wrench, Gauge } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { BatteryCharging, Plus, Zap, CheckCircle2 } from 'lucide-react';
 import Boton from '@/components/ui/Boton';
 import Card from '@/components/ui/Card';
 import Modal from '@/components/ui/Modal';
@@ -11,36 +11,41 @@ import { formatMonto } from '@/lib/utils';
 import NuevoAlquilerForm from '@/screens/alquiler/NuevoAlquilerForm';
 import AlquileresActivos from '@/screens/alquiler/AlquileresActivos';
 import CierreCaja from '@/screens/alquiler/CierreCaja';
-import GestionTriciclos from '@/screens/alquiler/GestionTriciclos'; // <-- IMPORTAMOS EL NUEVO
-import TricicloIcon from '@/components/TricicloIcon'; // <-- USAMOS EL ICONO NUEVO
+import GestionTriciclos from '@/screens/alquiler/GestionTriciclos';
 import HistorialAlquileres from '@/screens/alquiler/HistorialAlquileres';
+import TricicloIcon from '@/components/TricicloIcon';
 
 const ETIQUETA_ESTADO: Record<Triciclo['estado'], { texto: string; clase: string }> = {
   disponible: { texto: 'Disponible', clase: 'bg-emerald-100 text-emerald-800' },
   alquilado: { texto: 'Alquilado', clase: 'bg-amber-100 text-amber-800' },
-  mantenimiento: { texto: 'Mantenimiento', clase: 'bg-red-100 text-red-800' },
+  cargando: { texto: 'Cargando', clase: 'bg-blue-100 text-blue-800' },
 };
 
 type Props = { abrirNuevo: boolean };
 
 export default function AlquilerPage({ abrirNuevo }: Props) {
-  const { triciclos, moneda, cambiarEstadoTriciclo } = useStore(useShallow((s) => ({
-    triciclos: s.triciclos,
-    moneda: s.config.moneda,
-    cambiarEstadoTriciclo: s.cambiarEstadoTriciclo,
-  })));
+  const { triciclos, moneda, marcarCargado } = useStore(
+    useShallow((s) => ({
+      triciclos: s.triciclos, moneda: s.config.moneda, marcarCargado: s.marcarCargado,
+    }))
+  );
   const { mostrar } = useToast();
   const [nuevoAbierto, setNuevoAbierto] = useState(abrirNuevo);
+  const [, setTick] = useState(0);
 
-  const alternarMantenimiento = (triciclo: Triciclo) => {
-    const nuevoEstado = triciclo.estado === 'mantenimiento' ? 'disponible' : 'mantenimiento';
-    const resultado = cambiarEstadoTriciclo(triciclo.id, nuevoEstado);
-    if (!resultado.ok) {
-      mostrar(resultado.error, 'error');
-      return;
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const ahora = Date.now();
+    for (const t of triciclos) {
+      if (t.estado === 'cargando' && t.cargandoHasta && new Date(t.cargandoHasta).getTime() <= ahora) {
+        mostrar(`¡${t.nombre} ya terminó de cargar!`, 'aviso');
+      }
     }
-    mostrar(nuevoEstado === 'disponible' ? `${triciclo.nombre} marcado como disponible.` : `${triciclo.nombre} enviado a mantenimiento.`, 'aviso');
-  };
+  }, [triciclos, mostrar]);
 
   return (
     <div className="space-y-6">
@@ -54,6 +59,14 @@ export default function AlquilerPage({ abrirNuevo }: Props) {
       <section className="grid gap-4 sm:grid-cols-2">
         {triciclos.map((triciclo) => {
           const estado = ETIQUETA_ESTADO[triciclo.estado];
+          const cargandoListo =
+            triciclo.estado === 'cargando' &&
+            triciclo.cargandoHasta &&
+            new Date(triciclo.cargandoHasta).getTime() <= Date.now();
+          const segundosRestantes = triciclo.cargandoHasta
+            ? Math.max(0, Math.floor((new Date(triciclo.cargandoHasta).getTime() - Date.now()) / 1000))
+            : 0;
+
           return (
             <Card key={triciclo.id} className="space-y-4">
               <div className="flex items-start justify-between gap-3">
@@ -63,41 +76,33 @@ export default function AlquilerPage({ abrirNuevo }: Props) {
                   </span>
                   <div>
                     <p className="font-semibold text-slate-900">{triciclo.nombre}</p>
-                    <p className="text-sm text-slate-600">{formatMonto(triciclo.tarifaPorMinuto, moneda)} por minuto</p>
+                    <p className="text-sm text-slate-600">{formatMonto(triciclo.precioAlquiler, moneda)} por día</p>
                   </div>
                 </div>
                 <span className={`rounded-full px-3 py-1 text-xs font-semibold ${estado.clase}`}>{estado.texto}</span>
               </div>
 
-              <div>
-                <div className="mb-1.5 flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1.5 text-slate-600">
-                    <Battery size={16} /> Batería
-                  </span>
-                  <span className={`font-semibold tabular-nums ${triciclo.bateria < 20 ? 'text-red-600' : 'text-slate-900'}`}>
-                    {triciclo.bateria} %
-                  </span>
-                </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className={`h-full rounded-full transition-all ${triciclo.bateria < 20 ? 'bg-red-500' : 'bg-emerald-500'}`}
-                    style={{ width: `${triciclo.bateria}%` }}
-                  />
-                </div>
-              </div>
-
-              {triciclo.estado !== 'alquilado' && (
-                <Boton variante="secundaria" bloque onClick={() => alternarMantenimiento(triciclo)} className="min-h-11">
-                  {triciclo.estado === 'mantenimiento' ? (
-                    <>
-                      <Gauge size={18} /> Marcar disponible
-                    </>
+              {triciclo.estado === 'cargando' && (
+                <div className={`rounded-xl p-3 text-sm ${cargandoListo ? 'bg-emerald-50 text-emerald-900' : 'bg-blue-50 text-blue-900'}`}>
+                  {cargandoListo ? (
+                    <div className="space-y-2">
+                      <p className="flex items-center gap-1.5 font-semibold">
+                        <CheckCircle2 size={16} /> Carga completa. Desconéctalo.
+                      </p>
+                      <Boton
+                        onClick={() => { marcarCargado(triciclo.id); mostrar(`${triciclo.nombre} disponible.`); }}
+                        className="min-h-10 w-full"
+                      >
+                        <Zap size={16} /> Marcar como disponible
+                      </Boton>
+                    </div>
                   ) : (
-                    <>
-                      <Wrench size={18} /> Enviar a mantenimiento
-                    </>
+                    <p className="flex items-center gap-1.5">
+                      <BatteryCharging size={16} />
+                      En carga. Le quedan <strong>{Math.ceil(segundosRestantes / 60)} min</strong>
+                    </p>
                   )}
-                </Boton>
+                </div>
               )}
             </Card>
           );
@@ -108,10 +113,11 @@ export default function AlquilerPage({ abrirNuevo }: Props) {
         <h2 className="text-lg font-semibold text-slate-900">Alquileres activos</h2>
         <AlquileresActivos />
       </section>
-      {/* AQUÍ AGREGAMOS EL HISTORIAL */}
+
+      <HistorialAlquileres />
+
       <CierreCaja />
 
-      {/* AQUÍ AGREGAMOS EL PANEL DE GESTIÓN */}
       <GestionTriciclos />
 
       <Modal abierto={nuevoAbierto} onCerrar={() => setNuevoAbierto(false)} titulo="Nuevo alquiler">

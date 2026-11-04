@@ -10,17 +10,11 @@ import { useStore } from '@/store/useStore';
 import { format } from 'date-fns';
 
 async function copiarTexto(texto: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(texto);
-    return true;
-  } catch {
+  try { await navigator.clipboard.writeText(texto); return true; }
+  catch {
     const area = document.createElement('textarea');
-    area.value = texto;
-    area.setAttribute('readonly', '');
-    area.style.position = 'fixed';
-    area.style.opacity = '0';
-    document.body.appendChild(area);
-    area.select();
+    area.value = texto; area.setAttribute('readonly', ''); area.style.position = 'fixed'; area.style.opacity = '0';
+    document.body.appendChild(area); area.select();
     const copiado = document.execCommand('copy');
     document.body.removeChild(area);
     return copiado;
@@ -28,11 +22,9 @@ async function copiarTexto(texto: string): Promise<boolean> {
 }
 
 export default function CierreCaja() {
-  const { ventas, alquileres, moneda } = useStore(useShallow((s) => ({
-    ventas: s.ventas,
-    alquileres: s.alquileres,
-    moneda: s.config.moneda,
-  })));
+  const { ventas, alquileres, moneda } = useStore(
+    useShallow((s) => ({ ventas: s.ventas, alquileres: s.alquileres, moneda: s.config.moneda }))
+  );
   const { mostrar } = useToast();
   const hoy = new Date();
   const resumen = useMemo(() => resumenDia(ventas, alquileres, hoy), [ventas, alquileres]);
@@ -55,7 +47,7 @@ export default function CierreCaja() {
     setCopiando(true);
     const ok = await copiarTexto(textoWhatsApp);
     setCopiando(false);
-    mostrar(ok ? 'Resumen copiado. Pégalo en WhatsApp.' : 'No se pudo copiar el resumen.', ok ? 'exito' : 'error');
+    mostrar(ok ? 'Resumen copiado. Pégalo en WhatsApp.' : 'No se pudo copiar.', ok ? 'exito' : 'error');
   };
 
   const filas = [

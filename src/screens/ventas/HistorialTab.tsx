@@ -1,9 +1,10 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useMemo, useState } from 'react';
-import { ChevronDown, Clock, Receipt } from 'lucide-react';
+import { ChevronDown, Clock, Receipt, CheckCircle2, Trash2, AlertCircle } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import EstadoVacio from '@/components/ui/EstadoVacio';
 import { claseInput } from '@/components/ui/Campo';
+import { useToast } from '@/components/ui/Toast';
 import { format } from 'date-fns';
 import { formatFecha, formatMonto, nombreProducto, nombreSocio } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
@@ -11,9 +12,13 @@ import { useStore } from '@/store/useStore';
 const ETIQUETA_PAGO = { efectivo: 'Efectivo', transferencia: 'Transferencia', credito: 'Crédito' };
 
 export default function HistorialTab() {
-  const { ventas, productos, config, socios } = useStore(
-    useShallow((s) => ({ ventas: s.ventas, productos: s.productos, config: s.config, socios: s.socios }))
+  const { ventas, productos, config, socios, marcarVentaPagada, eliminarVenta } = useStore(
+    useShallow((s) => ({
+      ventas: s.ventas, productos: s.productos, config: s.config, socios: s.socios,
+      marcarVentaPagada: s.marcarVentaPagada, eliminarVenta: s.eliminarVenta
+    }))
   );
+  const { mostrar } = useToast();
   const moneda = config.moneda;
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
@@ -33,6 +38,18 @@ export default function HistorialTab() {
   );
 
   const totalFiltrado = filtradas.reduce((suma, v) => suma + v.total, 0);
+
+  const cobrar = (id: string) => {
+    if (!window.confirm('¿Marcar esta venta como pagada?')) return;
+    marcarVentaPagada(id);
+    mostrar('Venta marcada como pagada.');
+  };
+
+  const borrar = (id: string) => {
+    if (!window.confirm('¿Eliminar esta venta permanentemente? El stock y las cuentas se revertirán.')) return;
+    const r = eliminarVenta(id);
+    mostrar(r.ok ? 'Venta eliminada y cuentas revertidas.' : r.error, r.ok ? 'exito' : 'error');
+  };
 
   return (
     <div className="space-y-4">
@@ -57,27 +74,30 @@ export default function HistorialTab() {
       <p className="text-sm text-slate-600">{filtradas.length} venta(s) · Total {formatMonto(totalFiltrado, moneda)}</p>
 
       {filtradas.length === 0 ? (
-        <EstadoVacio Icono={Receipt} titulo="No hay ventas en este rango"
-          texto={ventas.length === 0 ? 'Cuando registres ventas aparecerán aquí.' : 'Prueba con otras fechas o socio.'} />
+        <EstadoVacio Icono={Receipt} titulo="No hay ventas en este rango" texto="Cuando registres ventas aparecerán aquí." />
       ) : (
         <ul className="space-y-3">
           {filtradas.map((venta) => {
             const expandida = abierta === venta.id;
+            const esCreditoPendiente = venta.metodoPago === 'credito' && venta.estadoPago === 'pendiente';
+
             return (
               <li key={venta.id}>
-                <Card className="p-0">
-                  <button type="button" onClick={() => setAbierta(expandida ? null : venta.id)}
-                    aria-expanded={expandida}
+                <Card className={`p-0 ${esCreditoPendiente ? 'border-amber-400' : ''}`}>
+                  <button type="button" onClick={() => setAbierta(expandida ? null : venta.id)} aria-expanded={expandida}
                     className="flex w-full items-center justify-between gap-3 rounded-2xl p-4 text-left transition hover:bg-slate-50">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                         <Clock size={14} className="text-slate-500" /> {formatFecha(venta.fecha)}
                       </p>
-                      <p className="text-xs text-slate-500">
-                        {nombreSocio(venta.socioAtendio, socios)} · {ETIQUETA_PAGO[venta.metodoPago]}
+                      <p className="text-xs text-slate-500 flex gap-2">
+                        <span>{nombreSocio(venta.socioAtendio, socios)}</span>
+                        <span>· {ETIQUETA_PAGO[venta.metodoPago]}</span>
+                        {venta.cliente && <span className="text-amber-700 font-medium">· {venta.cliente}</span>}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
+                      {esCreditoPendiente && <AlertCircle size={16} className="text-amber-500" />}
                       <p className="font-bold tabular-nums text-slate-900">{formatMonto(venta.total, moneda)}</p>
                       <ChevronDown size={18} className={`text-slate-500 transition ${expandida ? 'rotate-180' : ''}`} />
                     </div>
@@ -85,38 +105,33 @@ export default function HistorialTab() {
 
                   {expandida && (
                     <div className="space-y-4 border-t border-slate-100 p-4">
+                      {/* Botones de acción para esta venta */}
+                      <div className="flex gap-2">
+                        {esCreditoPendiente && (
+                          <button onClick={() => cobrar(venta.id)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-100 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-200">
+                            <CheckCircle2 size={14} /> Marcar Pagada
+                          </button>
+                        )}
+                        <button onClick={() => borrar(venta.id)} className="flex items-center justify-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-100">
+                          <Trash2 size={14} /> Eliminar
+                        </button>
+                      </div>
+
                       <div className="overflow-x-auto">
                         <table className="w-full min-w-[320px] text-left text-sm">
-                          <thead className="text-xs uppercase text-slate-500">
-                            <tr>
-                              <th className="pb-2 font-medium">Producto</th>
-                              <th className="pb-2 text-right font-medium">Cant.</th>
-                              <th className="pb-2 text-right font-medium">Precio</th>
-                              <th className="pb-2 text-right font-medium">Costo</th>
-                            </tr>
-                          </thead>
                           <tbody className="divide-y divide-slate-100">
                             {venta.items.map((item) => {
                               const producto = productos.find((p) => p.id === item.productoId);
                               return (
                                 <tr key={item.productoId}>
-                                  <td className="py-2">{producto ? nombreProducto(producto) : 'Producto eliminado'}</td>
-                                  <td className="py-2 text-right tabular-nums">{item.cantidad}</td>
-                                  <td className="py-2 text-right tabular-nums">{formatMonto(item.precioUnitario, moneda)}</td>
-                                  <td className="py-2 text-right tabular-nums">{formatMonto(item.costoUnitarioMomento, moneda)}</td>
+                                  <td className="py-2">{producto ? nombreProducto(producto) : 'Prod. eliminado'}</td>
+                                  <td className="py-2 text-right tabular-nums">{item.cantidad} x {formatMonto(item.precioUnitario, moneda)}</td>
                                 </tr>
                               );
                             })}
                           </tbody>
                         </table>
                       </div>
-                      <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                        <Dato etiqueta="COGS" valor={formatMonto(venta.cogs, moneda)} />
-                        <Dato etiqueta="Ganancia bruta" valor={formatMonto(venta.gananciaBruta, moneda)} color="text-emerald-700" />
-                        {socios.map((s) => (
-                          <Dato key={s.id} etiqueta={`Reparto ${s.nombre}`} valor={formatMonto(venta.reparto[s.id] ?? 0, moneda)} />
-                        ))}
-                      </dl>
                     </div>
                   )}
                 </Card>
@@ -125,15 +140,6 @@ export default function HistorialTab() {
           })}
         </ul>
       )}
-    </div>
-  );
-}
-
-function Dato({ etiqueta, valor, color = 'text-slate-900' }: { etiqueta: string; valor: string; color?: string }) {
-  return (
-    <div className="rounded-xl bg-slate-50 p-3">
-      <dt className="text-xs text-slate-500">{etiqueta}</dt>
-      <dd className={`font-semibold tabular-nums ${color}`}>{valor}</dd>
     </div>
   );
 }

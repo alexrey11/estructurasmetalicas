@@ -2,18 +2,21 @@ export type SocioId = string;
 
 export type Socio = { id: SocioId; nombre: string; pin: string; color: string };
 
-export type TipoProducto = 'angular' | 'tubo';
+export type TipoProducto = 'tubo' | 'angular' | 'otro';
+export type UnidadVenta = 'barra' | 'metro' | 'unidad' | 'libra' | 'litro' | 'paquete';
 
 export type Producto = {
   id: string;
   tipo: TipoProducto;
+  nombre: string;
   medida: string;
   largoEstandar: number;
-  unidad: 'barra' | 'metro';
+  unidadVenta: UnidadVenta;
   costoUnitario: number;
   precioVentaUnitario: number;
   stockActual: number;
   stockMinimo: number;
+  categoria?: string;
 };
 
 export type DatosProducto = Omit<Producto, 'id' | 'stockActual'>;
@@ -50,38 +53,40 @@ export type Venta = {
   metodoPago: MetodoPagoVenta;
   socioAtendio: SocioId;
   reparto: Record<SocioId, number>;
+  cliente?: string;
+  estadoPago: 'pagado' | 'pendiente';
 };
 
-export type EstadoTriciclo = 'disponible' | 'alquilado' | 'mantenimiento';
+export type EstadoTriciclo = 'disponible' | 'alquilado' | 'cargando';
 
 export type Triciclo = {
   id: string;
   nombre: string;
-  tarifaPorMinuto: number;
+  precioAlquiler: number;
   estado: EstadoTriciclo;
-  bateria: number;
+  cargandoHasta?: string;
 };
 
 export type Alquiler = {
   id: string;
   tricicloId: string;
   cliente: string;
+  telefono: string;
+  carnet: string;
   inicio: string;
   fin?: string;
-  duracionMinutos?: number;
+  montoPactado: number;
   monto?: number;
   metodoPago?: MetodoPagoAlquiler;
-  bateriaInicio: number;
-  bateriaFin?: number;
   estado: 'activo' | 'finalizado';
-  minutosContratados?: number;
 };
 
 export type DatosAlquiler = {
   tricicloId: string;
   cliente: string;
-  bateriaInicio: number;
-  minutosContratados: number;
+  telefono: string;
+  carnet: string;
+  montoPactado: number;
 };
 
 export type Retiro = {
@@ -92,10 +97,26 @@ export type Retiro = {
   nota?: string;
 };
 
+export type Gasto = {
+  id: string;
+  descripcion: string;
+  monto: number;
+  fecha: string;
+  socioId?: SocioId;
+};
+
+// NUEVO: tipo Moneda
+export type Moneda = {
+  codigo: string;      // 'CUP', 'USD', 'EUR', 'MLC', 'ZELLE'
+  nombre: string;      // 'Peso Cubano', 'Dólar EE.UU.', etc.
+  tasaEnBase: number;  // cuántos CUP vale 1 unidad. CUP siempre = 1.
+};
+
 export type Config = {
   moneda: string;
   nombreNegocio: string;
   repartoAlquiler: Record<SocioId, number>;
+  monedas: Moneda[];   // ← NUEVO
 };
 
 export type CuentaSocio = { capital: number; gananciaAcumulada: number; retiros: number };
@@ -108,6 +129,7 @@ export type EstadoDatos = {
   triciclos: Triciclo[];
   alquileres: Alquiler[];
   retiros: Retiro[];
+  gastos: Gasto[];
   config: Config;
   cuentas: Record<SocioId, CuentaSocio>;
 };

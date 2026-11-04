@@ -4,6 +4,7 @@ import type {
   Producto, SocioId, Venta, VentaItem,
 } from '@/lib/types';
 import { nombreProducto } from '@/lib/utils';
+import type { Moneda } from '@/lib/types';
 
 export function redondear(valor: number): number {
   return Math.round((valor + Number.EPSILON) * 100) / 100;
@@ -55,6 +56,7 @@ export function calcularVenta(lineas: LineaVenta[], capitales: Record<SocioId, n
   return { total, cogs, gananciaBruta, pct, reparto, reembolso };
 }
 
+
 export function validarStock(
   productos: Producto[],
   lineas: { productoId: string; cantidad: number }[]
@@ -73,12 +75,16 @@ export function validarStock(
 }
 
 export function validarProducto(datos: DatosProducto): string | null {
-  if (!datos.medida.trim()) return 'Escribe la medida del producto.';
-  if (!(datos.largoEstandar > 0)) return 'El largo estándar debe ser mayor que cero.';
+  if (!datos.nombre.trim()) return 'Escribe un nombre para el producto.';
+  if (datos.tipo === 'otro' && !datos.categoria?.trim()) return 'Escribe una categoría (ej. Bebidas).';
   if (!(datos.costoUnitario >= 0)) return 'El costo no puede ser negativo.';
   if (!(datos.precioVentaUnitario > 0)) return 'El precio de venta debe ser mayor que cero.';
-  if (!Number.isInteger(datos.stockMinimo) || datos.stockMinimo < 0) {
-    return 'El stock mínimo debe ser un entero mayor o igual a cero.';
+  if (!Number.isInteger(datos.stockMinimo) || datos.stockMinimo < 0) return 'El stock mínimo debe ser un entero mayor o igual a cero.';
+
+  // Validaciones específicas para tubos/angulares
+  if (datos.tipo !== 'otro') {
+    if (!datos.medida.trim()) return 'Escribe la medida (ej. 30x30x2 mm).';
+    if (!(datos.largoEstandar > 0)) return 'El largo estándar debe ser mayor que cero.';
   }
   return null;
 }
@@ -107,15 +113,14 @@ export function validarBateria(valor: number): string | null {
 
 export function validarInicioAlquiler(datos: {
   cliente: string;
-  bateriaInicio: number;
-  minutosContratados: number;
+  telefono: string;
+  carnet: string;
+  montoPactado: number;
 }): string | null {
   if (!datos.cliente.trim()) return 'Escribe el nombre del cliente.';
-  const errorBateria = validarBateria(datos.bateriaInicio);
-  if (errorBateria) return errorBateria;
-  if (!Number.isInteger(datos.minutosContratados) || datos.minutosContratados < 1) {
-    return 'El tiempo contratado debe ser de al menos 1 minuto.';
-  }
+  if (!datos.telefono.trim()) return 'Escribe el teléfono del cliente.';
+  if (!datos.carnet.trim()) return 'Escribe el carnet de identidad.';
+  if (!(datos.montoPactado > 0)) return 'El monto pactado debe ser mayor que cero.';
   return null;
 }
 
@@ -203,4 +208,25 @@ export function ejemploReparto(capitales: Record<SocioId, number>) {
     capitales
   );
   return { capitales, base, precioVenta, calculo };
+}
+
+export function convertir(
+  monto: number,
+  desdeCodigo: string,
+  haciaCodigo: string,
+  monedas: Moneda[]
+): number {
+  const desde = monedas.find((m) => m.codigo === desdeCodigo);
+  const hacia = monedas.find((m) => m.codigo === haciaCodigo);
+  if (!desde || !hacia) return 0;
+  if (hacia.tasaEnBase === 0) return 0;
+  return redondear((monto * desde.tasaEnBase) / hacia.tasaEnBase);
+}
+export function equivalencias(
+  codigo: string,
+  monedas: Moneda[]
+): Array<{ moneda: Moneda; valor: number }> {
+  return monedas
+    .filter((m) => m.codigo !== codigo)
+    .map((m) => ({ moneda: m, valor: convertir(1, codigo, m.codigo, monedas) }));
 }

@@ -1,13 +1,15 @@
-import type { ReactNode } from 'react';
-import { Bike, Home, LogOut, PieChart, ShoppingCart, type LucideIcon } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { ArrowLeftRight, Home, LogOut, PieChart, ShoppingCart, type LucideIcon } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useNombreSocio } from '@/hooks/useSocios';
 import type { SocioId, TabId } from '@/lib/types';
+import TricicloIcon from '@/components/TricicloIcon';
+import ConversorMoneda from '@/components/ConversorMoneda';
 
-const TABS: { id: TabId; etiqueta: string; Icono: LucideIcon }[] = [
+const TABS: { id: TabId; etiqueta: string; Icono: LucideIcon | typeof TricicloIcon }[] = [
   { id: 'inicio', etiqueta: 'Inicio', Icono: Home },
   { id: 'ventas', etiqueta: 'Ventas', Icono: ShoppingCart },
-  { id: 'alquiler', etiqueta: 'Alquiler', Icono: Bike },
+  { id: 'alquiler', etiqueta: 'Alquiler', Icono: TricicloIcon },
   { id: 'cuadre', etiqueta: 'Cuadre', Icono: PieChart },
 ];
 
@@ -17,6 +19,7 @@ export default function Layout({ tab, sesion, onCambiarTab, children }: Props) {
   const cerrarSesion = useStore((s) => s.logout);
   const nombreNegocio = useStore((s) => s.config.nombreNegocio);
   const nombre = useNombreSocio(sesion);
+  const [conversorAbierto, setConversorAbierto] = useState(false);
 
   return (
     <div className="min-h-screen bg-lienzo">
@@ -29,14 +32,25 @@ export default function Layout({ tab, sesion, onCambiarTab, children }: Props) {
               <p className="truncate text-xs text-slate-300">{nombre}</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={cerrarSesion}
-            aria-label="Salir"
-            className="grid size-10 place-items-center rounded-full bg-white/10 transition hover:bg-white/20"
-          >
-            <LogOut size={18} />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setConversorAbierto(true)}
+              aria-label="Abrir conversor de monedas"
+              title="Conversor de monedas"
+              className="grid size-10 place-items-center rounded-full bg-white/10 transition hover:bg-white/20"
+            >
+              <ArrowLeftRight size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={cerrarSesion}
+              aria-label="Salir"
+              className="grid size-10 place-items-center rounded-full bg-white/10 transition hover:bg-white/20"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -62,6 +76,8 @@ export default function Layout({ tab, sesion, onCambiarTab, children }: Props) {
           })}
         </div>
       </nav>
+
+      <ConversorMoneda abierto={conversorAbierto} onCerrar={() => setConversorAbierto(false)} />
     </div>
   );
 }

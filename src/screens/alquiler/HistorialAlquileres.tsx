@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useMemo, useState } from 'react';
-import { ChevronDown, Clock, Receipt } from 'lucide-react';
+import { ChevronDown, Clock, Receipt, Phone, IdCard } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import EstadoVacio from '@/components/ui/EstadoVacio';
 import { claseInput } from '@/components/ui/Campo';
@@ -12,9 +12,7 @@ import TricicloIcon from '@/components/TricicloIcon';
 export default function HistorialAlquileres() {
     const { alquileres, triciclos, moneda } = useStore(
         useShallow((s) => ({
-            alquileres: s.alquileres,
-            triciclos: s.triciclos,
-            moneda: s.config.moneda,
+            alquileres: s.alquileres, triciclos: s.triciclos, moneda: s.config.moneda,
         }))
     );
     const [desde, setDesde] = useState('');
@@ -22,7 +20,7 @@ export default function HistorialAlquileres() {
     const [tricicloFiltro, setTricicloFiltro] = useState('todos');
     const [abierta, setAbierta] = useState<string | null>(null);
 
-    const filtradas = useMemo(() => {
+    const filtrados = useMemo(() => {
         return alquileres
             .filter((a) => {
                 if (a.estado !== 'finalizado' || !a.fin) return false;
@@ -35,7 +33,7 @@ export default function HistorialAlquileres() {
             .sort((a, b) => new Date(b.fin!).getTime() - new Date(a.fin!).getTime());
     }, [alquileres, desde, hasta, tricicloFiltro]);
 
-    const totalFiltrado = filtradas.reduce((suma, a) => suma + (a.monto ?? 0), 0);
+    const totalFiltrado = filtrados.reduce((suma, a) => suma + (a.monto ?? 0), 0);
 
     return (
         <div className="space-y-4">
@@ -56,30 +54,20 @@ export default function HistorialAlquileres() {
                     <span className="text-sm font-medium text-slate-700">Triciclo</span>
                     <select className={claseInput} value={tricicloFiltro} onChange={(e) => setTricicloFiltro(e.target.value)}>
                         <option value="todos">Todos</option>
-                        {triciclos.map((t) => (
-                            <option key={t.id} value={t.id}>{t.nombre}</option>
-                        ))}
+                        {triciclos.map((t) => (<option key={t.id} value={t.id}>{t.nombre}</option>))}
                     </select>
                 </label>
             </Card>
 
             <p className="text-sm text-slate-600">
-                {filtradas.length} alquiler(es) · Total {formatMonto(totalFiltrado, moneda)}
+                {filtrados.length} alquiler(es) · Total {formatMonto(totalFiltrado, moneda)}
             </p>
 
-            {filtradas.length === 0 ? (
-                <EstadoVacio
-                    Icono={Receipt}
-                    titulo="No hay alquileres finalizados"
-                    texto={
-                        alquileres.filter((a) => a.estado === 'finalizado').length === 0
-                            ? 'Cuando finalices un alquiler aparecerá aquí.'
-                            : 'Prueba con otras fechas o triciclo.'
-                    }
-                />
+            {filtrados.length === 0 ? (
+                <EstadoVacio Icono={Receipt} titulo="No hay alquileres finalizados" texto="Cuando cierres un alquiler aparecerá aquí." />
             ) : (
                 <ul className="space-y-3">
-                    {filtradas.map((alquiler) => {
+                    {filtrados.map((alquiler) => {
                         const triciclo = triciclos.find((t) => t.id === alquiler.tricicloId);
                         const expandida = abierta === alquiler.id;
                         return (
@@ -93,20 +81,12 @@ export default function HistorialAlquileres() {
                                     >
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center justify-between gap-2">
-                                                <p className="font-semibold text-slate-900 truncate">{alquiler.cliente}</p>
-                                                <p className="font-bold tabular-nums text-slate-900">
-                                                    {formatMonto(alquiler.monto ?? 0, moneda)}
-                                                </p>
+                                                <p className="truncate font-semibold text-slate-900">{alquiler.cliente}</p>
+                                                <p className="font-bold tabular-nums text-slate-900">{formatMonto(alquiler.monto ?? 0, moneda)}</p>
                                             </div>
                                             <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                                                <span className="flex items-center gap-1">
-                                                    <Clock size={12} />
-                                                    {formatFecha(alquiler.fin!)}
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <TricicloIcon size={12} />
-                                                    {triciclo?.nombre ?? 'Triciclo eliminado'}
-                                                </span>
+                                                <span className="flex items-center gap-1"><Clock size={12} />{formatFecha(alquiler.fin!)}</span>
+                                                <span className="flex items-center gap-1"><TricicloIcon size={12} />{triciclo?.nombre ?? 'Triciclo eliminado'}</span>
                                             </div>
                                         </div>
                                         <ChevronDown size={18} className={`shrink-0 text-slate-500 transition ${expandida ? 'rotate-180' : ''}`} />
@@ -124,24 +104,22 @@ export default function HistorialAlquileres() {
                                                     <dd className="font-medium">{formatFecha(alquiler.fin!)}</dd>
                                                 </div>
                                                 <div>
-                                                    <dt className="text-xs text-slate-500">Duración real</dt>
-                                                    <dd className="font-medium">{alquiler.duracionMinutos} min</dd>
+                                                    <dt className="text-xs text-slate-500">Monto pactado</dt>
+                                                    <dd className="font-medium">{formatMonto(alquiler.montoPactado, moneda)}</dd>
                                                 </div>
                                                 <div>
-                                                    <dt className="text-xs text-slate-500">Método de pago</dt>
-                                                    <dd className="font-medium capitalize">{alquiler.metodoPago ?? 'No registrado'}</dd>
+                                                    <dt className="text-xs text-slate-500">Cobrado</dt>
+                                                    <dd className="font-medium">{formatMonto(alquiler.monto ?? 0, moneda)}</dd>
                                                 </div>
                                                 <div>
-                                                    <dt className="text-xs text-slate-500">Batería (inicio / fin)</dt>
-                                                    <dd className="font-medium">{alquiler.bateriaInicio}% / {alquiler.bateriaFin}%</dd>
-                                                </div>
-                                                <div>
-                                                    <dt className="text-xs text-slate-500">Tiempo contratado</dt>
-                                                    <dd className="font-medium">
-                                                        {alquiler.minutosContratados ? `${alquiler.minutosContratados} min` : 'No registrado'}
-                                                    </dd>
+                                                    <dt className="text-xs text-slate-500">Método</dt>
+                                                    <dd className="font-medium capitalize">{alquiler.metodoPago ?? '—'}</dd>
                                                 </div>
                                             </dl>
+                                            <div className="rounded-lg bg-slate-50 p-2 text-xs space-y-1">
+                                                <p className="flex items-center gap-1.5"><Phone size={12} /> {alquiler.telefono}</p>
+                                                <p className="flex items-center gap-1.5"><IdCard size={12} /> {alquiler.carnet}</p>
+                                            </div>
                                         </div>
                                     )}
                                 </Card>

@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useState } from 'react';
-import { CheckCircle2, Minus, Package, Plus, Search, ShoppingCart, Trash2 } from 'lucide-react';
+import { CheckCircle2, Minus, Package, Plus, Search, ShoppingCart, Trash2, UserCircle } from 'lucide-react';
 import Boton from '@/components/ui/Boton';
 import Card from '@/components/ui/Card';
 import { claseInput } from '@/components/ui/Campo';
@@ -31,6 +31,7 @@ export default function VenderTab() {
   const [busqueda, setBusqueda] = useState('');
   const [carrito, setCarrito] = useState<LineaCarrito[]>([]);
   const [metodoPago, setMetodoPago] = useState<MetodoPagoVenta>('efectivo');
+  const [cliente, setCliente] = useState('');
   const [ventaRealizada, setVentaRealizada] = useState<Venta | null>(null);
 
   const moneda = config.moneda;
@@ -89,12 +90,13 @@ export default function VenderTab() {
   };
 
   const confirmar = () => {
-    const resultado = registrarVenta(carrito, metodoPago);
+    const resultado = registrarVenta(carrito, metodoPago, cliente);
     if (!resultado.ok) {
       mostrar(resultado.error, 'error');
       return;
     }
     setCarrito([]);
+    setCliente('');
     setVentaRealizada(resultado.data);
   };
 
@@ -190,6 +192,23 @@ export default function VenderTab() {
                 </button>
               ))}
             </div>
+
+            {metodoPago === 'credito' && (
+              <div className="mt-3">
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium text-amber-700">Cliente que debe</span>
+                  <div className="relative">
+                    <UserCircle size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={cliente}
+                      onChange={(e) => setCliente(e.target.value)}
+                      placeholder="Nombre del cliente"
+                      className={`${claseInput} pl-11 border-amber-300 focus:border-amber-500 focus:ring-amber-500/20`}
+                    />
+                  </div>
+                </label>
+              </div>
+            )}
           </div>
 
           {lineas.length > 0 && (
