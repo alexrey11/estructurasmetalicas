@@ -1,9 +1,13 @@
-// Configuración para Android con Capacitor. Ejecuta `npx cap add android` cuando quieras generar el proyecto nativo.
-// La app web se compila en `dist`, que es lo que Capacitor empaqueta.
-const config = {
+import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
   appId: 'com.metaltrike.manager',
-  appName: 'MetalTrike Manager',
+  appName: 'MetalTrike',
   webDir: 'dist',
+  android: {
+    allowMixedContent: false,
+    backgroundColor: '#1E293B',
+  },
   server: {
     androidScheme: 'https',
   },

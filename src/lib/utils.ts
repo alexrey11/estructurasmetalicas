@@ -1,7 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { SOCIOS } from '@/lib/seed';
-import type { Producto, Resultado, SocioId, TipoProducto } from '@/lib/types';
+import type { Producto, Resultado, Socio, SocioId, TipoProducto } from '@/lib/types';
 
 const ETIQUETA_TIPO: Record<TipoProducto, string> = { angular: 'Angular', tubo: 'Tubo' };
 
@@ -9,8 +8,12 @@ export function nombreProducto(producto: Pick<Producto, 'tipo' | 'medida'>): str
   return `${ETIQUETA_TIPO[producto.tipo]} ${producto.medida}`;
 }
 
-export function nombreSocio(id: SocioId): string {
-  return SOCIOS.find((socio) => socio.id === id)?.nombre ?? id;
+export function nombreSocio(id: SocioId, socios: Socio[]): string {
+  return socios.find((s) => s.id === id)?.nombre ?? id;
+}
+
+export function colorSocio(id: SocioId, socios: Socio[]): string {
+  return socios.find((s) => s.id === id)?.color ?? '#64748B';
 }
 
 export function formatMonto(valor: number, moneda: string): string {
@@ -34,14 +37,14 @@ export function formatDiaCorto(fecha: Date): string {
   return format(fecha, 'EEE d', { locale: es });
 }
 
-const pad = (numero: number) => String(numero).padStart(2, '0');
+const pad = (n: number) => String(n).padStart(2, '0');
 
 export function formatDuracion(segundos: number): string {
   const total = Math.max(0, Math.floor(segundos));
-  const horas = Math.floor(total / 3600);
-  const minutos = Math.floor((total % 3600) / 60);
-  const resto = total % 60;
-  return horas > 0 ? `${horas}:${pad(minutos)}:${pad(resto)}` : `${pad(minutos)}:${pad(resto)}`;
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
 export function newId(prefijo: string): string {

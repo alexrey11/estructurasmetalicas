@@ -21,12 +21,12 @@ const METODOS: { id: MetodoPagoVenta; etiqueta: string }[] = [
 type LineaCarrito = { productoId: string; cantidad: number };
 
 export default function VenderTab() {
-  const { productos, cuentas, config, registrarVenta } = useStore(useShallow((s) => ({
-    productos: s.productos,
-    cuentas: s.cuentas,
-    config: s.config,
-    registrarVenta: s.registrarVenta,
-  })));
+  const { productos, cuentas, config, registrarVenta, socios } = useStore(
+    useShallow((s) => ({
+      productos: s.productos, cuentas: s.cuentas, config: s.config,
+      registrarVenta: s.registrarVenta, socios: s.socios,
+    }))
+  );
   const { mostrar } = useToast();
   const [busqueda, setBusqueda] = useState('');
   const [carrito, setCarrito] = useState<LineaCarrito[]>([]);
@@ -43,18 +43,18 @@ export default function VenderTab() {
       const producto = productos.find((p) => p.id === linea.productoId);
       return producto ? { ...linea, producto } : null;
     })
-    .filter((linea) => linea !== null);
+    .filter((l): l is NonNullable<typeof l> => l !== null);
 
+  const capitales = Object.fromEntries(socios.map((s) => [s.id, cuentas[s.id]?.capital ?? 0]));
   const calculo = calcularVenta(
     lineas.map((l) => ({
       cantidad: l.cantidad,
       precioUnitario: l.producto.precioVentaUnitario,
       costoUnitarioMomento: l.producto.costoUnitario,
     })),
-    cuentas.pedro.capital,
-    cuentas.juan.capital
+    capitales
   );
-  const { pctPedro, pctJuan } = calcularPorcentajes(cuentas.pedro.capital, cuentas.juan.capital);
+  const porcentajes = calcularPorcentajes(capitales);
 
   const agregar = (productoId: string) => {
     const producto = productos.find((p) => p.id === productoId);
@@ -161,26 +161,16 @@ export default function VenderTab() {
                 <li key={productoId} className="flex items-center justify-between gap-3 py-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-900">{nombreProducto(producto)}</p>
-                    <p className="text-xs text-slate-500">
-                      {formatMonto(producto.precioVentaUnitario, moneda)} c/u
-                    </p>
+                    <p className="text-xs text-slate-500">{formatMonto(producto.precioVentaUnitario, moneda)} c/u</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      aria-label="Quitar uno"
-                      onClick={() => cambiarCantidad(productoId, -1)}
-                      className="grid size-10 place-items-center rounded-lg border border-slate-300 hover:bg-slate-50"
-                    >
+                    <button type="button" aria-label="Quitar uno" onClick={() => cambiarCantidad(productoId, -1)}
+                      className="grid size-10 place-items-center rounded-lg border border-slate-300 hover:bg-slate-50">
                       {cantidad === 1 ? <Trash2 size={16} className="text-red-600" /> : <Minus size={16} />}
                     </button>
                     <span className="w-8 text-center font-semibold tabular-nums">{cantidad}</span>
-                    <button
-                      type="button"
-                      aria-label="Agregar uno"
-                      onClick={() => cambiarCantidad(productoId, 1)}
-                      className="grid size-10 place-items-center rounded-lg border border-slate-300 hover:bg-slate-50"
-                    >
+                    <button type="button" aria-label="Agregar uno" onClick={() => cambiarCantidad(productoId, 1)}
+                      className="grid size-10 place-items-center rounded-lg border border-slate-300 hover:bg-slate-50">
                       <Plus size={16} />
                     </button>
                   </div>
@@ -193,17 +183,9 @@ export default function VenderTab() {
             <p className="mb-2 text-sm font-medium text-slate-700">Método de pago</p>
             <div className="grid grid-cols-3 gap-2">
               {METODOS.map(({ id, etiqueta }) => (
-                <button
-                  key={id}
-                  type="button"
-                  aria-pressed={metodoPago === id}
-                  onClick={() => setMetodoPago(id)}
-                  className={`min-h-11 rounded-xl border-2 text-sm font-semibold transition ${
-                    metodoPago === id
-                      ? 'border-emerald-600 bg-emerald-50 text-emerald-900'
-                      : 'border-slate-200 text-slate-700 hover:border-slate-300'
-                  }`}
-                >
+                <button key={id} type="button" aria-pressed={metodoPago === id} onClick={() => setMetodoPago(id)}
+                  className={`min-h-11 rounded-xl border-2 text-sm font-semibold transition ${metodoPago === id ? 'border-emerald-600 bg-emerald-50 text-emerald-900' : 'border-slate-200 text-slate-700 hover:border-slate-300'
+                    }`}>
                   {etiqueta}
                 </button>
               ))}
@@ -215,12 +197,12 @@ export default function VenderTab() {
               <Fila etiqueta="Total" valor={formatMonto(calculo.total, moneda)} destacado />
               <Fila etiqueta="Costo de lo vendido" valor={formatMonto(calculo.cogs, moneda)} />
               <Fila etiqueta="Ganancia bruta" valor={formatMonto(calculo.gananciaBruta, moneda)} color="text-emerald-700" />
-              <div className="border-t border-slate-200 pt-2">
-                <Fila
-                  etiqueta={`Pedro (${formatPorcentaje(pctPedro)})`}
-                  valor={formatMonto(calculo.repartoPedro, moneda)}
-                />
-                <Fila etiqueta={`Juan (${formatPorcentaje(pctJuan)})`} valor={formatMonto(calculo.repartoJuan, moneda)} />
+              <div className="space-y-1 border-t border-slate-200 pt-2">
+                {socios.map((s) => (
+                  <Fila key={s.id}
+                    etiqueta={`${s.nombre} (${formatPorcentaje(porcentajes[s.id] ?? 0)})`}
+                    valor={formatMonto(calculo.reparto[s.id] ?? 0, moneda)} />
+                ))}
               </div>
             </dl>
           )}
@@ -236,16 +218,8 @@ export default function VenderTab() {
   );
 }
 
-function Fila({
-  etiqueta,
-  valor,
-  color = 'text-slate-900',
-  destacado = false,
-}: {
-  etiqueta: string;
-  valor: string;
-  color?: string;
-  destacado?: boolean;
+function Fila({ etiqueta, valor, color = 'text-slate-900', destacado = false }: {
+  etiqueta: string; valor: string; color?: string; destacado?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-3">

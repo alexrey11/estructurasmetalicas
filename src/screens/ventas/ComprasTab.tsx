@@ -10,19 +10,19 @@ import { useStore } from '@/store/useStore';
 import CompraForm from '@/screens/ventas/CompraForm';
 
 export default function ComprasTab() {
-  const { compras, productos, moneda } = useStore(useShallow((s) => ({
-    compras: s.compras,
-    productos: s.productos,
-    moneda: s.config.moneda,
-  })));
+  const { compras, productos, moneda, socios } = useStore(
+    useShallow((s) => ({
+      compras: s.compras, productos: s.productos,
+      moneda: s.config.moneda, socios: s.socios,
+    }))
+  );
   const [abierto, setAbierto] = useState(false);
-
   const ordenadas = [...compras].sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-slate-600">Cada compra suma stock y capital de los socios.</p>
+        <p className="text-sm text-slate-600">Cada compra suma stock y capital.</p>
         <Boton onClick={() => setAbierto(true)} className="min-h-11" disabled={productos.length === 0}>
           <Plus size={18} /> Registrar compra
         </Boton>
@@ -39,28 +39,25 @@ export default function ComprasTab() {
                 <Card className="space-y-3 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <p className="font-semibold text-slate-900">
-                        {producto ? nombreProducto(producto) : 'Producto eliminado'}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {formatFecha(compra.fecha)} · {compra.proveedor}
-                      </p>
+                      <p className="font-semibold text-slate-900">{producto ? nombreProducto(producto) : 'Producto eliminado'}</p>
+                      <p className="text-xs text-slate-500">{formatFecha(compra.fecha)} · {compra.proveedor}</p>
                     </div>
                     <p className="text-sm font-semibold text-slate-900">{compra.cantidad} barra(s)</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 rounded-xl bg-slate-50 p-3 text-sm">
+                  <div className="grid gap-2 rounded-xl bg-slate-50 p-3 text-sm sm:grid-cols-[1fr_repeat(auto-fit,minmax(0,1fr))]">
                     <div>
                       <p className="text-xs text-slate-500">Costo total</p>
                       <p className="font-semibold tabular-nums">{formatMonto(compra.costoTotal, moneda)}</p>
                     </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Pedro</p>
-                      <p className="font-semibold tabular-nums">{formatMonto(compra.aportePedro, moneda)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Juan</p>
-                      <p className="font-semibold tabular-nums">{formatMonto(compra.aporteJuan, moneda)}</p>
-                    </div>
+                    {socios.map((s) => (
+                      <div key={s.id}>
+                        <p className="flex items-center gap-1 text-xs text-slate-500">
+                          <span className="size-2 rounded-full" style={{ backgroundColor: s.color }} />
+                          {s.nombre}
+                        </p>
+                        <p className="font-semibold tabular-nums">{formatMonto(compra.aportes[s.id] ?? 0, moneda)}</p>
+                      </div>
+                    ))}
                   </div>
                 </Card>
               </li>

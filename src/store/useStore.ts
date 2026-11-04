@@ -1,52 +1,39 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
-  calcularCobro,
-  calcularVenta,
-  redondear,
-  repartirAlquiler,
-  saldoDisponible,
-  segundosTranscurridos,
-  validarBateria,
-  validarCompra,
-  validarInicioAlquiler,
-  validarProducto,
-  validarStock,
+  calcularCobro, calcularVenta, redondear, repartirAlquiler, saldoDisponible,
+  segundosTranscurridos, validarBateria, validarCompra, validarInicioAlquiler,
+  validarProducto, validarStock,
 } from '@/lib/calculos';
-import { datosIniciales } from '@/lib/seed';
+import { COLORES_SOCIOS, datosIniciales } from '@/lib/seed';
 import type {
-  Alquiler,
-  Compra,
-  Config,
-  DatosAlquiler,
-  DatosCompra,
-  DatosProducto,
-  EstadoDatos,
-  EstadoTriciclo,
-  MetodoPagoAlquiler,
-  MetodoPagoVenta,
-  Producto,
-  Resultado,
-  Retiro,
-  SocioId,
-  Triciclo,
-  Venta,
-  VentaItem,
+  Alquiler, Compra, Config, DatosAlquiler, DatosCompra, DatosProducto, EstadoDatos,
+  EstadoTriciclo, MetodoPagoAlquiler, MetodoPagoVenta, Producto, Resultado, Retiro,
+  Socio, SocioId, Triciclo, Venta, VentaItem,
 } from '@/lib/types';
 import { exito, fallo, formatMonto, newId } from '@/lib/utils';
 
 type Acciones = {
   login: (socio: SocioId) => void;
   logout: () => void;
+
+  crearSocio: (datos: { nombre: string; pin: string; color?: string }) => Resultado<Socio>;
+  actualizarSocio: (id: SocioId, datos: Partial<Pick<Socio, 'nombre' | 'pin' | 'color'>>) => Resultado;
+  eliminarSocio: (id: SocioId) => Resultado;
+
   crearProducto: (datos: DatosProducto) => Resultado<Producto>;
   actualizarProducto: (id: string, datos: DatosProducto) => Resultado;
+  eliminarProducto: (id: string) => Resultado;
+
   registrarCompra: (datos: DatosCompra) => Resultado<Compra>;
   registrarVenta: (lineas: { productoId: string; cantidad: number }[], metodoPago: MetodoPagoVenta) => Resultado<Venta>;
+
   iniciarAlquiler: (datos: DatosAlquiler) => Resultado<Alquiler>;
   finalizarAlquiler: (id: string, datos: { bateriaFin: number; metodoPago: MetodoPagoAlquiler }) => Resultado;
   cambiarEstadoTriciclo: (id: string, estado: Extract<EstadoTriciclo, 'disponible' | 'mantenimiento'>) => Resultado;
+
   registrarRetiro: (datos: { socioId: SocioId; monto: number; nota?: string }) => Resultado<Retiro>;
-  actualizarConfig: (datos: Config) => Resultado;
+  actualizarConfig: (datos: Partial<Config>) => Resultado;
 };
 
 export type EstadoApp = EstadoDatos & Acciones & { sesion: SocioId | null };
@@ -62,6 +49,63 @@ export const useStore = create<EstadoApp>()(
       login: (socio) => set({ sesion: socio }),
       logout: () => set({ sesion: null }),
 
+      crearSocio: ({ nombre, pin, color }) => {
+        const n = nombre.trim();
+        if (!n) return fallo('Escribe el nombre del socio.');
+        if (!/^\d{4}$/.test(pin)) return fallo('El PIN debe ser de 4 dígitos.');
+        const state = get();
+        if (state.socios.some((s) => s.nombre.toLowerCase() === n.toLowerCase())) {
+          return fallo('Ya existe un socio con ese nombre.');
+        }
+        const usado = new Set(state.socios.map((s) => s.color));
+        const libre = COLORES_SOCIOS.find((c) => !usado.has(c)) ?? COLORES_SOCIOS[state.socios.length % COLORES_SOCIOS.length];
+        const socio: Socio = { id: newId('socio'), nombre: n, pin, color: color ?? libre };
+        const nuevosSocios = [...state.socios, socio];
+        const pct = 100 / nuevosSocios.length;
+        set({
+          socios: nuevosSocios,
+          cuentas: { ...state.cuentas, [socio.id]: { capital: 0, gananciaAcumulada: 0, retiros: 0 } },
+          config: {
+            ...state.config,
+            repartoAlquiler: Object.fromEntries(nuevosSocios.map((s) => [s.id, pct])),
+          },
+        });
+        return exito(socio);
+      },
+
+      actualizarSocio: (id, datos) => {
+        const state = get();
+        if (!state.socios.some((s) => s.id === id)) return fallo('Socio no encontrado.');
+        if (datos.pin !== undefined && !/^\d{4}$/.test(datos.pin)) return fallo('El PIN debe ser de 4 dígitos.');
+        set({
+          socios: state.socios.map((s) => (s.id === id ? { ...s, ...datos } : s)),
+        });
+        return exito(null);
+      },
+
+      eliminarSocio: (id) => {
+        const state = get();
+        if (state.socios.length <= 1) return fallo('Debe quedar al menos un socio.');
+        const cuenta = state.cuentas[id];
+        if (!cuenta) return fallo('Socio no encontrado.');
+        if (cuenta.capital > 0 || cuenta.gananciaAcumulada > 0 || cuenta.retiros > 0) {
+          return fallo('No se puede eliminar: el socio tiene movimientos registrados.');
+        }
+        const nuevos = state.socios.filter((s) => s.id !== id);
+        const cuentas = { ...state.cuentas };
+        delete cuentas[id];
+        const pct = 100 / nuevos.length;
+        set({
+          socios: nuevos,
+          cuentas,
+          config: {
+            ...state.config,
+            repartoAlquiler: Object.fromEntries(nuevos.map((s) => [s.id, pct])),
+          },
+        });
+        return exito(null);
+      },
+
       crearProducto: (datos) => {
         const error = validarProducto(datos);
         if (error) return fallo(error);
@@ -71,54 +115,65 @@ export const useStore = create<EstadoApp>()(
       },
 
       actualizarProducto: (id, datos) => {
-        const existe = get().productos.some((p) => p.id === id);
-        if (!existe) return fallo('No se encontró el producto.');
         const error = validarProducto(datos);
         if (error) return fallo(error);
-        set((s) => ({
-          productos: s.productos.map((p) => (p.id === id ? { ...p, ...datos } : p)),
-        }));
+        set((s) => ({ productos: s.productos.map((p) => (p.id === id ? { ...p, ...datos } : p)) }));
+        return exito(null);
+      },
+
+      eliminarProducto: (id) => {
+        const state = get();
+        const conVentas = state.ventas.some((v) => v.items.some((i) => i.productoId === id));
+        if (conVentas) return fallo('No se puede eliminar: el producto tiene ventas registradas.');
+        set({ productos: state.productos.filter((p) => p.id !== id) });
         return exito(null);
       },
 
       registrarCompra: (datos) => {
-        const { productos, cuentas } = get();
-        if (!productos.some((p) => p.id === datos.productoId)) return fallo('Selecciona un producto.');
+        const state = get();
+        if (!state.productos.some((p) => p.id === datos.productoId)) return fallo('Selecciona un producto.');
         const error = validarCompra(datos);
         if (error) return fallo(error);
 
         const compra: Compra = { ...datos, id: newId('compra'), fecha: ahoraIso() };
-        set((s) => ({
-          compras: [...s.compras, compra],
-          productos: s.productos.map((p) =>
-            p.id === compra.productoId ? { ...p, stockActual: p.stockActual + compra.cantidad } : p
-          ),
-          cuentas: {
-            pedro: { ...cuentas.pedro, capital: redondear(cuentas.pedro.capital + compra.aportePedro) },
-            juan: { ...cuentas.juan, capital: redondear(cuentas.juan.capital + compra.aporteJuan) },
-          },
-        }));
+        set((s) => {
+          const cuentas = { ...s.cuentas };
+          for (const [socioId, aporte] of Object.entries(datos.aportes)) {
+            if (aporte > 0 && cuentas[socioId]) {
+              cuentas[socioId] = { ...cuentas[socioId], capital: redondear(cuentas[socioId].capital + aporte) };
+            }
+          }
+          return {
+            compras: [...s.compras, compra],
+            productos: s.productos.map((p) =>
+              p.id === compra.productoId ? { ...p, stockActual: p.stockActual + compra.cantidad } : p
+            ),
+            cuentas,
+          };
+        });
         return exito(compra);
       },
 
       registrarVenta: (lineas, metodoPago) => {
-        const { sesion, productos, cuentas } = get();
-        if (!sesion) return fallo('Inicia sesión para registrar ventas.');
+        const state = get();
+        if (!state.sesion) return fallo('Inicia sesión para registrar ventas.');
         if (lineas.length === 0) return fallo('Agrega al menos un producto a la venta.');
-        const errorStock = validarStock(productos, lineas);
+        const errorStock = validarStock(state.productos, lineas);
         if (errorStock) return fallo(errorStock);
 
-        const items: VentaItem[] = lineas.map((linea) => {
-          const producto = productos.find((p) => p.id === linea.productoId)!;
+        const items: VentaItem[] = lineas.map((l) => {
+          const p = state.productos.find((x) => x.id === l.productoId)!;
           return {
-            productoId: producto.id,
-            cantidad: linea.cantidad,
-            precioUnitario: producto.precioVentaUnitario,
-            costoUnitarioMomento: producto.costoUnitario,
+            productoId: p.id,
+            cantidad: l.cantidad,
+            precioUnitario: p.precioVentaUnitario,
+            costoUnitarioMomento: p.costoUnitario,
           };
         });
 
-        const calculo = calcularVenta(items, cuentas.pedro.capital, cuentas.juan.capital);
+        const capitales = Object.fromEntries(state.socios.map((s) => [s.id, state.cuentas[s.id]?.capital ?? 0]));
+        const calculo = calcularVenta(items, capitales);
+
         const venta: Venta = {
           id: newId('venta'),
           fecha: ahoraIso(),
@@ -127,36 +182,36 @@ export const useStore = create<EstadoApp>()(
           cogs: calculo.cogs,
           gananciaBruta: calculo.gananciaBruta,
           metodoPago,
-          socioAtendio: sesion,
-          repartoPedro: calculo.repartoPedro,
-          repartoJuan: calculo.repartoJuan,
+          socioAtendio: state.sesion,
+          reparto: calculo.reparto,
         };
 
-        set((s) => ({
-          ventas: [venta, ...s.ventas],
-          productos: s.productos.map((p) => {
-            const vendido = items.find((i) => i.productoId === p.id);
-            return vendido ? { ...p, stockActual: p.stockActual - vendido.cantidad } : p;
-          }),
-          cuentas: {
-            pedro: {
-              ...s.cuentas.pedro,
-              capital: redondear(s.cuentas.pedro.capital - calculo.reembolsoPedro),
-              gananciaAcumulada: redondear(s.cuentas.pedro.gananciaAcumulada + calculo.repartoPedro),
-            },
-            juan: {
-              ...s.cuentas.juan,
-              capital: redondear(s.cuentas.juan.capital - calculo.reembolsoJuan),
-              gananciaAcumulada: redondear(s.cuentas.juan.gananciaAcumulada + calculo.repartoJuan),
-            },
-          },
-        }));
+        set((s) => {
+          const cuentas = { ...s.cuentas };
+          for (const [socioId, ganancia] of Object.entries(calculo.reparto)) {
+            if (cuentas[socioId]) {
+              cuentas[socioId] = {
+                ...cuentas[socioId],
+                capital: redondear(cuentas[socioId].capital - (calculo.reembolso[socioId] ?? 0)),
+                gananciaAcumulada: redondear(cuentas[socioId].gananciaAcumulada + ganancia),
+              };
+            }
+          }
+          return {
+            ventas: [venta, ...s.ventas],
+            productos: s.productos.map((p) => {
+              const v = items.find((i) => i.productoId === p.id);
+              return v ? { ...p, stockActual: p.stockActual - v.cantidad } : p;
+            }),
+            cuentas,
+          };
+        });
         return exito(venta);
       },
 
       iniciarAlquiler: (datos) => {
-        const { triciclos } = get();
-        const triciclo = triciclos.find((t) => t.id === datos.tricicloId);
+        const state = get();
+        const triciclo = state.triciclos.find((t) => t.id === datos.tricicloId);
         if (!triciclo) return fallo('Selecciona un triciclo.');
         if (triciclo.estado !== 'disponible') return fallo(`${triciclo.nombre} no está disponible.`);
         const error = validarInicioAlquiler(datos);
@@ -181,11 +236,11 @@ export const useStore = create<EstadoApp>()(
       },
 
       finalizarAlquiler: (id, datos) => {
-        const { alquileres, triciclos, config, cuentas } = get();
-        const alquiler = alquileres.find((a) => a.id === id);
+        const state = get();
+        const alquiler = state.alquileres.find((a) => a.id === id);
         if (!alquiler || alquiler.estado !== 'activo') return fallo('Este alquiler ya no está activo.');
-        const triciclo = triciclos.find((t) => t.id === alquiler.tricicloId);
-        if (!triciclo) return fallo('No se encontró el triciclo de este alquiler.');
+        const triciclo = state.triciclos.find((t) => t.id === alquiler.tricicloId);
+        if (!triciclo) return fallo('No se encontró el triciclo.');
         const error = validarBateria(datos.bateriaFin);
         if (error) return fallo(error);
 
@@ -194,7 +249,7 @@ export const useStore = create<EstadoApp>()(
           segundosTranscurridos(alquiler.inicio, ahora.getTime()),
           triciclo.tarifaPorMinuto
         );
-        const { repartoPedro, repartoJuan } = repartirAlquiler(monto, config.porcentajeRepartoAlquiler);
+        const reparto = repartirAlquiler(monto, state.config.repartoAlquiler);
 
         const finalizado: Alquiler = {
           ...alquiler,
@@ -205,22 +260,25 @@ export const useStore = create<EstadoApp>()(
           metodoPago: datos.metodoPago,
           bateriaFin: datos.bateriaFin,
         };
-        set((s) => ({
-          alquileres: s.alquileres.map((a) => (a.id === id ? finalizado : a)),
-          triciclos: s.triciclos.map((t): Triciclo =>
-            t.id === triciclo.id ? { ...t, estado: 'disponible', bateria: datos.bateriaFin } : t
-          ),
-          cuentas: {
-            pedro: {
-              ...cuentas.pedro,
-              gananciaAcumulada: redondear(cuentas.pedro.gananciaAcumulada + repartoPedro),
-            },
-            juan: {
-              ...cuentas.juan,
-              gananciaAcumulada: redondear(cuentas.juan.gananciaAcumulada + repartoJuan),
-            },
-          },
-        }));
+
+        set((s) => {
+          const cuentas = { ...s.cuentas };
+          for (const [socioId, ganancia] of Object.entries(reparto)) {
+            if (cuentas[socioId]) {
+              cuentas[socioId] = {
+                ...cuentas[socioId],
+                gananciaAcumulada: redondear(cuentas[socioId].gananciaAcumulada + ganancia),
+              };
+            }
+          }
+          return {
+            alquileres: s.alquileres.map((a) => (a.id === id ? finalizado : a)),
+            triciclos: s.triciclos.map((t): Triciclo =>
+              t.id === triciclo.id ? { ...t, estado: 'disponible', bateria: datos.bateriaFin } : t
+            ),
+            cuentas,
+          };
+        });
         return exito(null);
       },
 
@@ -235,12 +293,12 @@ export const useStore = create<EstadoApp>()(
       },
 
       registrarRetiro: ({ socioId, monto, nota }) => {
-        const { cuentas, config } = get();
+        const state = get();
         if (!(monto > 0)) return fallo('El monto debe ser mayor que cero.');
-        const saldo = saldoDisponible(cuentas[socioId]);
-        if (monto > saldo) {
-          return fallo(`Saldo insuficiente. Disponible: ${formatMonto(saldo, config.moneda)}.`);
-        }
+        const cuenta = state.cuentas[socioId];
+        if (!cuenta) return fallo('Socio no encontrado.');
+        const saldo = saldoDisponible(cuenta);
+        if (monto > saldo) return fallo(`Saldo insuficiente. Disponible: ${formatMonto(saldo, state.config.moneda)}.`);
         const retiro: Retiro = {
           id: newId('retiro'),
           socioId,
@@ -252,25 +310,32 @@ export const useStore = create<EstadoApp>()(
           retiros: [retiro, ...s.retiros],
           cuentas: {
             ...s.cuentas,
-            [socioId]: {
-              ...s.cuentas[socioId],
-              retiros: redondear(s.cuentas[socioId].retiros + retiro.monto),
-            },
+            [socioId]: { ...cuenta, retiros: redondear(cuenta.retiros + retiro.monto) },
           },
         }));
         return exito(retiro);
       },
 
       actualizarConfig: (datos) => {
-        const moneda = datos.moneda.trim();
-        if (!moneda) return fallo('Escribe la moneda.');
-        if (!(datos.porcentajeRepartoAlquiler >= 0 && datos.porcentajeRepartoAlquiler <= 100)) {
-          return fallo('El porcentaje debe estar entre 0 y 100.');
-        }
-        set({ config: { moneda, porcentajeRepartoAlquiler: datos.porcentajeRepartoAlquiler } });
+        const state = get();
+        const nueva: Config = { ...state.config, ...datos };
+        if (!nueva.moneda.trim()) return fallo('Escribe la moneda.');
+        if (!nueva.nombreNegocio.trim()) return fallo('Escribe el nombre del negocio.');
+        const sumaAlq = Object.values(nueva.repartoAlquiler).reduce((a, b) => a + b, 0);
+        if (Math.abs(sumaAlq - 100) > 0.5) return fallo('Los porcentajes de alquiler deben sumar 100 %.');
+        set({ config: nueva });
         return exito(null);
       },
     }),
-    { name: 'metaltrike-manager', version: 1 }
+    {
+      name: 'metaltrike-manager',
+      version: 2,
+      migrate: () => ({ ...datosIniciales(), sesion: null }),
+    }
   )
 );
+
+// Exportación auxiliar por si se necesita fuera de componentes
+export function sociosActuales(): Socio[] {
+  return useStore.getState().socios;
+}

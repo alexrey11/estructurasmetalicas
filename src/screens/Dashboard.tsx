@@ -4,7 +4,6 @@ import { Bike, ShoppingCart, TriangleAlert, Wallet, TrendingUp } from 'lucide-re
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import Boton from '@/components/ui/Boton';
 import Card from '@/components/ui/Card';
-import { SOCIOS } from '@/lib/seed';
 import { calcularPorcentajes, inversionAcumulada, resumenDia, saldoDisponible } from '@/lib/calculos';
 import { formatDiaCorto, formatDiaLargo, formatMonto, formatPorcentaje } from '@/lib/utils';
 import type { TabId } from '@/lib/types';
@@ -14,15 +13,13 @@ import { subDays } from 'date-fns';
 type Props = { onNavegar: (tab: TabId, accion?: 'nuevo-alquiler') => void };
 
 export default function Dashboard({ onNavegar }: Props) {
-  const { ventas, alquileres, productos, triciclos, cuentas, config, compras } = useStore(useShallow((s) => ({
-    ventas: s.ventas,
-    alquileres: s.alquileres,
-    productos: s.productos,
-    triciclos: s.triciclos,
-    cuentas: s.cuentas,
-    config: s.config,
-    compras: s.compras,
-  })));
+  const { ventas, alquileres, productos, triciclos, cuentas, config, compras, socios } = useStore(
+    useShallow((s) => ({
+      ventas: s.ventas, alquileres: s.alquileres, productos: s.productos,
+      triciclos: s.triciclos, cuentas: s.cuentas, config: s.config,
+      compras: s.compras, socios: s.socios,
+    }))
+  );
   const moneda = config.moneda;
   const hoy = new Date();
 
@@ -39,12 +36,14 @@ export default function Dashboard({ onNavegar }: Props) {
     [ventas, alquileres]
   );
 
-  const { pctPedro, pctJuan } = calcularPorcentajes(cuentas.pedro.capital, cuentas.juan.capital);
+  const capitales = Object.fromEntries(socios.map((s) => [s.id, cuentas[s.id]?.capital ?? 0]));
+  const porcentajes = calcularPorcentajes(capitales);
   const inversion = inversionAcumulada(compras);
+
   const tarjetas = [
     { titulo: 'Ganancia del día', valor: formatMonto(resumen.gananciaDia, moneda), detalle: 'Ventas y alquileres', Icono: TrendingUp, color: 'text-emerald-700' },
     { titulo: 'Ventas del día', valor: formatMonto(resumen.ventasTotal, moneda), detalle: `${resumen.ventasCantidad} venta(s)`, Icono: ShoppingCart, color: 'text-slate-900' },
-    { titulo: 'Alquileres activos', valor: String(alquileresActivos), detalle: `${triciclos.filter((t) => t.estado === 'alquilado').length} triciclo(s) en uso`, Icono: Bike, color: 'text-slate-900' },
+    { titulo: 'Alquileres activos', valor: String(alquileresActivos), detalle: `${triciclos.filter((t) => t.estado === 'alquilado').length} en uso`, Icono: Bike, color: 'text-slate-900' },
     { titulo: 'Stock bajo', valor: String(stockBajo), detalle: 'Productos bajo el mínimo', Icono: TriangleAlert, color: stockBajo > 0 ? 'text-amber-700' : 'text-slate-900' },
   ];
 
@@ -93,26 +92,31 @@ export default function Dashboard({ onNavegar }: Props) {
       <Card>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold text-slate-900">Socios</h2>
-          <p className="text-sm text-slate-600">
-            Reparto de ventas: Pedro {formatPorcentaje(pctPedro)} / Juan {formatPorcentaje(pctJuan)}
-          </p>
+          <p className="text-xs text-slate-600">Reparto según capital</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[320px] text-left text-sm">
             <thead className="text-xs uppercase text-slate-500">
               <tr>
                 <th className="pb-2 font-medium">Socio</th>
-                <th className="pb-2 text-right font-medium">Capital actual</th>
-                <th className="pb-2 text-right font-medium">Saldo disponible</th>
+                <th className="pb-2 text-right font-medium">Capital</th>
+                <th className="pb-2 text-right font-medium">Reparto</th>
+                <th className="pb-2 text-right font-medium">Saldo</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {SOCIOS.map((socio) => (
+              {socios.map((socio) => (
                 <tr key={socio.id}>
-                  <td className="py-3 font-semibold text-slate-900">{socio.nombre}</td>
-                  <td className="py-3 text-right tabular-nums">{formatMonto(cuentas[socio.id].capital, moneda)}</td>
+                  <td className="py-3">
+                    <span className="inline-flex items-center gap-2 font-semibold text-slate-900">
+                      <span className="size-2.5 rounded-full" style={{ backgroundColor: socio.color }} />
+                      {socio.nombre}
+                    </span>
+                  </td>
+                  <td className="py-3 text-right tabular-nums">{formatMonto(cuentas[socio.id]?.capital ?? 0, moneda)}</td>
+                  <td className="py-3 text-right tabular-nums">{formatPorcentaje(porcentajes[socio.id] ?? 0)}</td>
                   <td className="py-3 text-right font-semibold tabular-nums text-emerald-700">
-                    {formatMonto(saldoDisponible(cuentas[socio.id]), moneda)}
+                    {formatMonto(saldoDisponible(cuentas[socio.id] ?? { capital: 0, gananciaAcumulada: 0, retiros: 0 }), moneda)}
                   </td>
                 </tr>
               ))}

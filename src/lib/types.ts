@@ -1,6 +1,6 @@
-export type SocioId = 'pedro' | 'juan';
+export type SocioId = string;
 
-export type Socio = { id: SocioId; nombre: string; pin: string };
+export type Socio = { id: SocioId; nombre: string; pin: string; color: string };
 
 export type TipoProducto = 'angular' | 'tubo';
 
@@ -23,8 +23,7 @@ export type Compra = {
   productoId: string;
   cantidad: number;
   costoTotal: number;
-  aportePedro: number;
-  aporteJuan: number;
+  aportes: Record<SocioId, number>;
   proveedor: string;
   fecha: string;
 };
@@ -50,8 +49,7 @@ export type Venta = {
   gananciaBruta: number;
   metodoPago: MetodoPagoVenta;
   socioAtendio: SocioId;
-  repartoPedro: number;
-  repartoJuan: number;
+  reparto: Record<SocioId, number>;
 };
 
 export type EstadoTriciclo = 'disponible' | 'alquilado' | 'mantenimiento';
@@ -94,11 +92,16 @@ export type Retiro = {
   nota?: string;
 };
 
-export type Config = { moneda: string; porcentajeRepartoAlquiler: number };
+export type Config = {
+  moneda: string;
+  nombreNegocio: string;
+  repartoAlquiler: Record<SocioId, number>;
+};
 
 export type CuentaSocio = { capital: number; gananciaAcumulada: number; retiros: number };
 
 export type EstadoDatos = {
+  socios: Socio[];
   productos: Producto[];
   compras: Compra[];
   ventas: Venta[];

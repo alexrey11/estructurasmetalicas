@@ -1,97 +1,50 @@
-import type { Compra, Config, CuentaSocio, EstadoDatos, Producto, Socio, SocioId, Triciclo } from '@/lib/types';
+import type { Config, CuentaSocio, EstadoDatos, Producto, Socio, SocioId, Triciclo } from '@/lib/types';
 
-export const SOCIOS: Socio[] = [
-  { id: 'pedro', nombre: 'Pedro', pin: '1234' },
-  { id: 'juan', nombre: 'Juan', pin: '1234' },
+export const COLORES_SOCIOS = [
+  '#10B981', '#3B82F6', '#F59E0B', '#EF4444',
+  '#8B5CF6', '#EC4899', '#14B8A6', '#F97316',
 ];
 
-const PRODUCTOS_SEMILLA: Producto[] = [
-  {
-    id: 'prod-tubo-30x30',
-    tipo: 'tubo',
-    medida: '30×30×3 mm',
-    largoEstandar: 6,
-    unidad: 'barra',
-    costoUnitario: 10,
-    precioVentaUnitario: 15,
-    stockActual: 20,
-    stockMinimo: 5,
-  },
-  {
-    id: 'prod-tubo-40x40',
-    tipo: 'tubo',
-    medida: '40×40×2 mm',
-    largoEstandar: 6,
-    unidad: 'barra',
-    costoUnitario: 14,
-    precioVentaUnitario: 20,
-    stockActual: 15,
-    stockMinimo: 5,
-  },
-  {
-    id: 'prod-angular-25x25',
-    tipo: 'angular',
-    medida: '25×25×3 mm',
-    largoEstandar: 6,
-    unidad: 'barra',
-    costoUnitario: 8,
-    precioVentaUnitario: 12,
-    stockActual: 25,
-    stockMinimo: 8,
-  },
-  {
-    id: 'prod-angular-40x40',
-    tipo: 'angular',
-    medida: '40×40×4 mm',
-    largoEstandar: 6,
-    unidad: 'barra',
-    costoUnitario: 18,
-    precioVentaUnitario: 26,
-    stockActual: 10,
-    stockMinimo: 4,
-  },
+export const SOCIOS_INICIALES: Socio[] = [
+  { id: 'socio-1', nombre: 'Socio 1', pin: '1234', color: COLORES_SOCIOS[0] },
+  { id: 'socio-2', nombre: 'Socio 2', pin: '1234', color: COLORES_SOCIOS[1] },
 ];
 
-const FECHA_SEMILLA = new Date().toISOString();
+const PRODUCTOS_EJEMPLO: Producto[] = [
+  { id: 'prod-tubo-30x30', tipo: 'tubo', medida: '30×30×3 mm', largoEstandar: 6, unidad: 'barra', costoUnitario: 10, precioVentaUnitario: 15, stockActual: 0, stockMinimo: 5 },
+  { id: 'prod-tubo-40x40', tipo: 'tubo', medida: '40×40×2 mm', largoEstandar: 6, unidad: 'barra', costoUnitario: 14, precioVentaUnitario: 20, stockActual: 0, stockMinimo: 5 },
+  { id: 'prod-angular-25x25', tipo: 'angular', medida: '25×25×3 mm', largoEstandar: 6, unidad: 'barra', costoUnitario: 8, precioVentaUnitario: 12, stockActual: 0, stockMinimo: 8 },
+  { id: 'prod-angular-40x40', tipo: 'angular', medida: '40×40×4 mm', largoEstandar: 6, unidad: 'barra', costoUnitario: 18, precioVentaUnitario: 26, stockActual: 0, stockMinimo: 4 },
+];
 
-const COMPRAS_SEMILLA: Compra[] = PRODUCTOS_SEMILLA.map((producto, indice) => ({
-  id: `compra-semilla-${indice + 1}`,
-  productoId: producto.id,
-  cantidad: producto.stockActual,
-  costoTotal: 2500,
-  aportePedro: 1500,
-  aporteJuan: 1000,
-  proveedor: 'Inventario inicial',
-  fecha: FECHA_SEMILLA,
-}));
-
-const TRICICLOS_SEMILLA: Triciclo[] = [
+const TRICICLOS_EJEMPLO: Triciclo[] = [
   { id: 'triciclo-1', nombre: 'Triciclo 1', tarifaPorMinuto: 5, estado: 'disponible', bateria: 100 },
   { id: 'triciclo-2', nombre: 'Triciclo 2', tarifaPorMinuto: 5, estado: 'disponible', bateria: 100 },
 ];
 
-const CONFIG_INICIAL: Config = { moneda: 'CUP', porcentajeRepartoAlquiler: 50 };
-
-function capitalDeSocio(socioId: SocioId): number {
-  return COMPRAS_SEMILLA.reduce(
-    (total, compra) => total + (socioId === 'pedro' ? compra.aportePedro : compra.aporteJuan),
-    0
-  );
+export function cuentasVacias(socios: Socio[]): Record<SocioId, CuentaSocio> {
+  return Object.fromEntries(socios.map((s) => [s.id, { capital: 0, gananciaAcumulada: 0, retiros: 0 }]));
 }
 
-export function datosIniciales(): EstadoDatos {
-  const cuentas: Record<SocioId, CuentaSocio> = {
-    pedro: { capital: capitalDeSocio('pedro'), gananciaAcumulada: 0, retiros: 0 },
-    juan: { capital: capitalDeSocio('juan'), gananciaAcumulada: 0, retiros: 0 },
-  };
+export function configInicial(socios: Socio[]): Config {
+  const pct = socios.length > 0 ? 100 / socios.length : 50;
   return {
-    productos: PRODUCTOS_SEMILLA.map((producto) => ({ ...producto })),
-    compras: COMPRAS_SEMILLA.map((compra) => ({ ...compra })),
+    moneda: 'CUP',
+    nombreNegocio: 'Mi negocio',
+    repartoAlquiler: Object.fromEntries(socios.map((s) => [s.id, pct])),
+  };
+}
+
+export function datosIniciales(socios: Socio[] = SOCIOS_INICIALES): EstadoDatos {
+  return {
+    socios,
+    productos: PRODUCTOS_EJEMPLO.map((p) => ({ ...p })),
+    compras: [],
     ventas: [],
-    triciclos: TRICICLOS_SEMILLA.map((triciclo) => ({ ...triciclo })),
+    triciclos: TRICICLOS_EJEMPLO.map((t) => ({ ...t })),
     alquileres: [],
     retiros: [],
-    config: { ...CONFIG_INICIAL },
-    cuentas,
+    config: configInicial(socios),
+    cuentas: cuentasVacias(socios),
   };
 }

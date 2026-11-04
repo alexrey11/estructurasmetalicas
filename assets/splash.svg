@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<!-- SVG created with Arrow, by QuiverAI (https://quiver.ai) -->
+  <defs>
+    <linearGradient id="slateFinish" x1="245" y1="365" x2="610" y2="690" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#617887"/>
+      <stop offset=".55" stop-color="#627987"/>
+      <stop offset="1" stop-color="#5d7483"/>
+    </linearGradient>
+    <linearGradient id="orangeFinish" x1="574" y1="494" x2="779" y2="604" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff9100"/>
+      <stop offset=".55" stop-color="#ff9906"/>
+      <stop offset="1" stop-color="#fb9608"/>
+    </linearGradient>
+  </defs>
+  <g id="slate-monogram" fill="url(#slateFinish)">
+    <path id="upper-open-frame" d="M245 361H513V485.5H446.5V421H307.5V567.5H351.5V630.5H245Z"/>
+    <path id="right-frame-foot" d="M446.5 502H513V630.5H433V567.5H446.5Z"/>
+    <path id="projecting-lower-angle" d="M368 439.5L420 493V647.5H570.5L615.5 693H368Z"/>
+  </g>
+  <g id="orange-delivery-scooter" fill="url(#orangeFinish)">
+    <path id="scooter-body" d="M563.5 491.5H666.5L668 526.5L689.5 560.5H717L724 547L710 480.5H698.5Q697 480.5 697 478V475H712Q716 475 717 479L720.5 495L725 517L723 492.5Q750 497 777.5 512Q785 516 788.5 523.5Q794 536 795 548.5H774Q758 548 748 560Q740.5 570 738 583H645Q645 568 636 558Q627 548.5 614 548.5Q601 548.5 592.5 557Q586.5 562.5 583.5 570.5H563.5Z"/>
+    <path id="rear-wheel" fill-rule="evenodd" d="M641.5 581A28.5 28.5 0 1 1 584.5 581A28.5 28.5 0 1 1 641.5 581ZM628 581.5A15 15 0 1 0 598 581.5A15 15 0 1 0 628 581.5Z"/>
+    <path id="front-wheel" fill-rule="evenodd" d="M799.5 581A28.5 28.5 0 1 1 742.5 581A28.5 28.5 0 1 1 799.5 581ZM786 581.5A15 15 0 1 0 756 581.5A15 15 0 1 0 786 581.5Z"/>
+  </g>
+</svg>

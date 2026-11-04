@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Bike, Home, LogOut, PieChart, ShoppingCart, type LucideIcon } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-import { nombreSocio } from '@/lib/utils';
+import { useNombreSocio } from '@/hooks/useSocios';
 import type { SocioId, TabId } from '@/lib/types';
 
 const TABS: { id: TabId; etiqueta: string; Icono: LucideIcon }[] = [
@@ -15,28 +15,28 @@ type Props = { tab: TabId; sesion: SocioId; onCambiarTab: (tab: TabId) => void; 
 
 export default function Layout({ tab, sesion, onCambiarTab, children }: Props) {
   const cerrarSesion = useStore((s) => s.logout);
+  const nombreNegocio = useStore((s) => s.config.nombreNegocio);
+  const nombre = useNombreSocio(sesion);
 
   return (
     <div className="min-h-screen bg-lienzo">
       <header className="sticky top-0 z-30 bg-header text-white shadow-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-600/25 text-emerald-300">
-              <Bike size={22} />
-            </span>
-            <p className="truncate text-base font-bold">MetalTrike Manager</p>
+            <img src="/logo.svg" alt="" className="size-10 shrink-0 rounded-xl" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold">{nombreNegocio}</p>
+              <p className="truncate text-xs text-slate-300">{nombre}</p>
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="hidden rounded-full bg-white/10 px-3 py-1 text-sm sm:inline">{nombreSocio(sesion)}</span>
-            <button
-              type="button"
-              onClick={cerrarSesion}
-              aria-label="Salir"
-              className="grid size-10 place-items-center rounded-full bg-white/10 transition hover:bg-white/20"
-            >
-              <LogOut size={18} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={cerrarSesion}
+            aria-label="Salir"
+            className="grid size-10 place-items-center rounded-full bg-white/10 transition hover:bg-white/20"
+          >
+            <LogOut size={18} />
+          </button>
         </div>
       </header>
 
@@ -52,9 +52,8 @@ export default function Layout({ tab, sesion, onCambiarTab, children }: Props) {
                 type="button"
                 onClick={() => onCambiarTab(id)}
                 aria-current={activo ? 'page' : undefined}
-                className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-xs font-semibold transition ${
-                  activo ? 'bg-emerald-50 text-emerald-800' : 'text-slate-500 hover:text-slate-800'
-                }`}
+                className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-xs font-semibold transition ${activo ? 'bg-emerald-50 text-emerald-800' : 'text-slate-500 hover:text-slate-800'
+                  }`}
               >
                 <Icono size={22} />
                 {etiqueta}

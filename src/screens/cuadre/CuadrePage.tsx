@@ -3,50 +3,52 @@ import { useState } from 'react';
 import { Info } from 'lucide-react';
 import Boton from '@/components/ui/Boton';
 import Card from '@/components/ui/Card';
-import { calcularPorcentajes, gananciaAlquilerSocio, gananciaVentasSocio, inversionAcumulada, saldoDisponible } from '@/lib/calculos';
-import { SOCIOS } from '@/lib/seed';
+import {
+  calcularPorcentajes, gananciaVentasSocio, inversionAcumulada, saldoDisponible,
+} from '@/lib/calculos';
 import { formatMonto, formatPorcentaje } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
-import TablaSocios from '@/screens/cuadre/TablaSocios';
+import TablaSocios, { type FilaSocio } from '@/screens/cuadre/TablaSocios';
 import RetirosPanel from '@/screens/cuadre/RetirosPanel';
 import ConfigPanel from '@/screens/cuadre/ConfigPanel';
+import SociosPanel from '@/screens/cuadre/SociosPanel';
+import BackupPanel from '@/screens/cuadre/BackupPanel';
 import EjemploRepartoModal from '@/screens/cuadre/EjemploRepartoModal';
 
 export default function CuadrePage() {
-  const { cuentas, ventas, alquileres, compras, config } = useStore(useShallow((s) => ({
-    cuentas: s.cuentas,
-    ventas: s.ventas,
-    alquileres: s.alquileres,
-    compras: s.compras,
-    config: s.config,
-  })));
+  const { cuentas, ventas, alquileres, compras, config, socios } = useStore(
+    useShallow((s) => ({
+      cuentas: s.cuentas, ventas: s.ventas, alquileres: s.alquileres,
+      compras: s.compras, config: s.config, socios: s.socios,
+    }))
+  );
   const [ejemploAbierto, setEjemploAbierto] = useState(false);
   const moneda = config.moneda;
 
-  const { pctPedro, pctJuan } = calcularPorcentajes(cuentas.pedro.capital, cuentas.juan.capital);
+  const capitales = Object.fromEntries(socios.map((s) => [s.id, cuentas[s.id]?.capital ?? 0]));
+  const porcentajes = calcularPorcentajes(capitales);
+
   const brutasVentas = ventas.reduce((suma, v) => suma + v.total, 0);
   const gananciaBrutaVentas = ventas.reduce((suma, v) => suma + v.gananciaBruta, 0);
   const ingresosAlquiler = alquileres.reduce((suma, a) => suma + (a.estado === 'finalizado' ? a.monto ?? 0 : 0), 0);
   const gananciaNeta = gananciaBrutaVentas + ingresosAlquiler;
 
-  const filas = SOCIOS.map((socio) => {
-    const cuenta = cuentas[socio.id];
+  const filas: FilaSocio[] = socios.map((socio) => {
+    const cuenta = cuentas[socio.id] ?? { capital: 0, gananciaAcumulada: 0, retiros: 0 };
     const porVentas = gananciaVentasSocio(ventas, socio.id);
     return {
-      socio,
-      capital: cuenta.capital,
-      porVentas,
-      porAlquiler: gananciaAlquilerSocio(cuenta, porVentas),
-      retiros: cuenta.retiros,
-      saldo: saldoDisponible(cuenta),
+      socio, capital: cuenta.capital, porVentas,
+      porAlquiler: cuenta.gananciaAcumulada - porVentas,
+      retiros: cuenta.retiros, saldo: saldoDisponible(cuenta),
+      porcentaje: porcentajes[socio.id] ?? 0,
     };
   });
 
   const resumen = [
     { etiqueta: 'Inversión acumulada', valor: formatMonto(inversionAcumulada(compras), moneda) },
     { etiqueta: 'Ventas brutas', valor: formatMonto(brutasVentas, moneda) },
-    { etiqueta: 'Ganancia bruta de ventas', valor: formatMonto(gananciaBrutaVentas, moneda) },
-    { etiqueta: 'Ingresos por alquiler', valor: formatMonto(ingresosAlquiler, moneda) },
+    { etiqueta: 'Ganancia bruta ventas', valor: formatMonto(gananciaBrutaVentas, moneda) },
+    { etiqueta: 'Ingresos alquiler', valor: formatMonto(ingresosAlquiler, moneda) },
     { etiqueta: 'Ganancia neta repartible', valor: formatMonto(gananciaNeta, moneda), destacado: true },
   ];
 
@@ -72,25 +74,28 @@ export default function CuadrePage() {
           <Info size={20} className="mt-0.5 shrink-0 text-emerald-700" />
           <div className="space-y-2 text-sm text-slate-700">
             <p className="font-semibold text-slate-900">Cómo se reparte cada venta</p>
-            <p>
-              La ganancia de cada venta (precio menos costo) se reparte según el capital de cada socio en el momento
-              de la venta. Hoy: <span className="font-semibold">Pedro {formatPorcentaje(pctPedro)} / Juan {formatPorcentaje(pctJuan)}</span>.
-            </p>
-            <p>
-              Los alquileres se reparten {config.porcentajeRepartoAlquiler} % Pedro / {100 - config.porcentajeRepartoAlquiler} % Juan.
-            </p>
-            <p>Después de cada venta, el costo recuperado se descuenta del capital de ambos en la misma proporción.</p>
+            <p>La ganancia de cada venta se reparte según el capital de cada socio en el momento de la venta.</p>
+            <div className="flex flex-wrap gap-2">
+              {socios.map((s) => (
+                <span key={s.id} className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">
+                  <span className="size-2 rounded-full" style={{ backgroundColor: s.color }} />
+                  {s.nombre}: {formatPorcentaje(porcentajes[s.id] ?? 0)}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
-        <Boton variante="secundaria" onClick={() => setEjemploAbierto(true)}>
-          Ver ejemplo de reparto
-        </Boton>
+        <Boton variante="secundaria" onClick={() => setEjemploAbierto(true)}>Ver ejemplo de reparto</Boton>
       </Card>
+
+      <SociosPanel />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <RetirosPanel />
         <ConfigPanel />
       </div>
+
+      <BackupPanel />
 
       <EjemploRepartoModal abierto={ejemploAbierto} onCerrar={() => setEjemploAbierto(false)} />
     </div>

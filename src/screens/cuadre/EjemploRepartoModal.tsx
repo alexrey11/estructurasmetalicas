@@ -9,24 +9,22 @@ type Props = { abierto: boolean; onCerrar: () => void };
 export default function EjemploRepartoModal({ abierto, onCerrar }: Props) {
   const cuentas = useStore((s) => s.cuentas);
   const moneda = useStore((s) => s.config.moneda);
-  const ejemplo = ejemploReparto(cuentas.pedro.capital, cuentas.juan.capital);
-  const { calculo, base, precioVenta, capitalPedro, capitalJuan } = ejemplo;
-  const m = (valor: number) => formatMonto(valor, moneda);
+  const socios = useStore((s) => s.socios);
+
+  const capitales = Object.fromEntries(socios.map((s) => [s.id, cuentas[s.id]?.capital ?? 0]));
+  const ejemplo = ejemploReparto(capitales);
+  const { calculo, base, precioVenta } = ejemplo;
+  const m = (v: number) => formatMonto(v, moneda);
 
   return (
     <Modal abierto={abierto} onCerrar={onCerrar} titulo="Ejemplo de reparto">
       <div className="space-y-5 text-sm text-slate-700">
-        <p>
-          Ejemplo con los datos reales del negocio. No registra ninguna venta.
-        </p>
+        <p>Ejemplo con los datos reales del negocio. No registra ninguna venta.</p>
 
         <Paso numero={1} titulo="Capital actual">
-          <p>
-            Pedro {m(capitalPedro)} · Juan {m(capitalJuan)}
-          </p>
-          <p>
-            Reparto: Pedro {formatPorcentaje(calculo.pctPedro)} / Juan {formatPorcentaje(calculo.pctJuan)}
-          </p>
+          {socios.map((s) => (
+            <p key={s.id}>{s.nombre}: {m(capitales[s.id] ?? 0)} → {formatPorcentaje(calculo.pct[s.id] ?? 0)}</p>
+          ))}
         </Paso>
 
         <Paso numero={2} titulo="Venta de ejemplo">
@@ -36,22 +34,18 @@ export default function EjemploRepartoModal({ abierto, onCerrar }: Props) {
         </Paso>
 
         <Paso numero={3} titulo="Reparto de la ganancia">
-          <p>
-            Pedro: {m(calculo.gananciaBruta)} × {formatPorcentaje(calculo.pctPedro)} = <strong>{m(calculo.repartoPedro)}</strong>
-          </p>
-          <p>
-            Juan: {m(calculo.gananciaBruta)} × {formatPorcentaje(calculo.pctJuan)} = <strong>{m(calculo.repartoJuan)}</strong>
-          </p>
+          {socios.map((s) => (
+            <p key={s.id}>{s.nombre}: <strong>{m(calculo.reparto[s.id] ?? 0)}</strong></p>
+          ))}
         </Paso>
 
         <Paso numero={4} titulo="Capital después de la venta">
-          <p>Se descuenta el costo recuperado en la misma proporción.</p>
-          <p>
-            Pedro: {m(capitalPedro)} − {m(calculo.reembolsoPedro)} = {m(capitalPedro - calculo.reembolsoPedro)}
-          </p>
-          <p>
-            Juan: {m(capitalJuan)} − {m(calculo.reembolsoJuan)} = {m(capitalJuan - calculo.reembolsoJuan)}
-          </p>
+          {socios.map((s) => (
+            <p key={s.id}>
+              {s.nombre}: {m(capitales[s.id] ?? 0)} − {m(calculo.reembolso[s.id] ?? 0)} ={' '}
+              {m((capitales[s.id] ?? 0) - (calculo.reembolso[s.id] ?? 0))}
+            </p>
+          ))}
         </Paso>
       </div>
     </Modal>
